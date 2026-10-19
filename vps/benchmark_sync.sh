@@ -14,11 +14,7 @@ python3 scripts/02_analyze_transcripts.py || echo "(transcript analysis skipped)
 python3 -I analysis/analyze_titles.py >/dev/null
 python3 scripts/03_topic_queue.py --n 8 || echo "(queue skipped)"
 
-# 말속도(자/분) → .env CHARS_PER_MIN 자동 갱신
-CPM=$(grep -oP '말속도 중앙값: \K[0-9]+' analysis/structure.md 2>/dev/null || true)
-if [ -n "${CPM:-}" ]; then
-  grep -q '^CHARS_PER_MIN=' .env && sed -i "s/^CHARS_PER_MIN=.*/CHARS_PER_MIN=$CPM/" .env || echo "CHARS_PER_MIN=$CPM" >> .env
-fi
+# (CHARS_PER_MIN 은 TTS 실측 pace 기준이라 여기서 덮어쓰지 않음. 벤치마크 진행자 속도는 analysis/structure.md 참고)
 
 # 결과 커밋 (자막 원문은 제외, 분석 결과와 메타만)
 git add data/channel_videos.csv data/channel_videos.json analysis/*.md analysis/*.csv data/queue.csv 2>/dev/null || true
