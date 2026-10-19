@@ -11,7 +11,7 @@ pip install -q --break-system-packages -U yt-dlp pyyaml anthropic playwright pil
 python3 -m playwright install chromium >/dev/null 2>&1 || true
 python3 -m playwright install-deps >/dev/null 2>&1 || true
 command -v ffmpeg >/dev/null || apt-get install -y -qq ffmpeg
-fc-list | grep -qi "noto sans cjk" || apt-get install -y -qq fonts-noto-cjk
+fc-list | grep -qi "Noto Sans CJK JP" || apt-get install -y -qq fonts-noto-cjk
 [ -f .env ] || cp .env.example .env
 
 # yt-dlp 봇 차단 회피: bgutil PO token 서버(:4416) + yt-dlp 플러그인

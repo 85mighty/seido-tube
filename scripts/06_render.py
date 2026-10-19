@@ -126,6 +126,6 @@ if __name__ == "__main__":
     (wd / "audio" / "list.txt").write_text("\n".join(f"file '{(wd/'audio'/(s['id']+'.mp3')).resolve()}'" for s in js["sections"]))
     subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(wd / "audio" / "list.txt"), "-c", "copy", str(audio)], check=True)
     subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(wd / "concat.txt"), "-i", str(audio),
-                    "-vf", f"subtitles={wd/'subs.srt'}:force_style='FontName=Noto Sans JP,FontSize=22,Outline=2,MarginV=40',format=yuv420p,fps=30",
+                    "-vf", f"subtitles={wd/'subs.srt'}:force_style='FontName=Noto Sans CJK JP,FontSize=22,Outline=2,MarginV=40',format=yuv420p,fps=30",
                     "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "aac", "-b:a", "160k", "-shortest", str(wd / "final.mp4")], check=True)
     print("→", wd / "final.mp4", "|", assets, f"({len(manifest)} images)")
