@@ -87,7 +87,7 @@ def slide_html(sl, section):
     c = sl.get("character")
     if c and k not in ("compare", "timeline"):
         body += chara(c["id"], c.get("mood", "neutral")).replace("<img", "<img class='character'")
-    return TPL.replace("{{BODY}}", body).replace("{{CHANNEL}}", CHANNEL).replace("{{SECTION}}", esc(section))
+    return TPL.replace("{{BODY}}", body).replace("{{CHANNEL}}", "").replace("{{SECTION}}", "")
 
 THUMB_TPL = (ROOT / "templates" / "thumb.html").read_text(encoding="utf-8")
 def thumb_html(th):
