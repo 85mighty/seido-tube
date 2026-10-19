@@ -50,6 +50,7 @@
   <h1 id="title"></h1>
   <span id="status" class="badge" style="display:none">작업 중…</span>
   <button onclick="job('render')" class="p">전체 재렌더 (음성 없는 섹션만 생성 + 영상)</button>
+  <button onclick="reslice()" title="대본은 그대로, 슬라이드만 AI가 15~25초 단위로 다시 잘라 이미지를 늘림 (토큰만 사용, 음성 재사용)">✂️ AI로 전체 더 잘게</button>
   <button onclick="job('upload')">YouTube 업로드(비공개)</button>
   <button onclick="job('upload',{publish:true})">금 19:00 공개예약</button>
   <button onclick="job('blog',{wp:true,hatena:true,draft:true})">블로그 초안 생성</button>
@@ -96,7 +97,7 @@ function render(){
   $("#sections").innerHTML=S.sections.map(sec=>`
   <div class="sec" id="sec_${sec.id}"><div class="h"><b>${sec.id}</b><span class="t">${fmt(sec.start)} 〜 ${fmt((sec.start||0)+(sec.dur||0))} (${(sec.dur||0).toFixed(1)}s · ${sec.chars}字)</span>
     ${sec.audio?`<audio controls preload="none" src="${sec.audio}?v=${S.video_mtime}" style="height:30px"></audio>`:`<span class="badge">음성 없음</span>`}
-    <span style="flex:1"></span><button onclick="seek(${sec.start||0})">▶ 영상 여기로</button></div>
+    <span style="flex:1"></span><button onclick="reslice('${sec.id}')">✂️ 이 섹션 더 잘게</button><button onclick="seek(${sec.start||0})">▶ 영상 여기로</button></div>
    <div class="body"><div>
       <textarea rows="14" id="nar_${sec.id}">${esc(sec.narration)}</textarea>
       <div class="row"><button class="p" onclick="saveNar('${sec.id}')">대본 저장</button><button onclick="retts('${sec.id}')">이 섹션 음성 재생성</button></div>
@@ -148,6 +149,8 @@ async function op(sid,idx,o){await api("slide",{section:sid,idx,op:o});await loa
 function changeKind(sid,idx,k){const sl=S.sections.find(s=>s.id===sid).slides[idx];sl.spec={kind:k,alt:sl.spec.alt,weight:sl.spec.weight};render();}
 async function saveNar(sid){const r=await api("narration",{section:sid,narration:$(`#nar_${sid}`).value});toast(`대본 저장됨 (${r.chars}字). 음성 재생성 필요`);}
 async function retts(sid){if(!confirm("이 섹션 음성을 다시 만듭니다 (ElevenLabs 크레딧 사용)"))return;await api("tts",{sections:[sid]});poll();}
+async function reslice(sid){const sec=prompt(`${sid?sid+" 섹션":"전체"}을 AI로 더 잘게 나눕니다 (대본 불변, 음성 재사용, 토큰만 사용).\n1슬라이드 목표 초수를 입력 (작을수록 더 잘게):`,"18");if(!sec)return;
+  try{await api("reslice",{section:sid||null,sec:parseFloat(sec)});toast("재구성 + 재렌더 시작 (수 분 소요)");poll();}catch(e){alert("실행 실패: "+e.message)}}
 async function job(name,body){if(!confirm(name+" 실행?"))return;try{await api(name,body||{});poll();}catch(e){alert("실행 실패: "+e.message)}}
 async function previewThumb(){const r=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({thumbnail:thumbSpec()})});$("#thumb").src=URL.createObjectURL(await r.blob());}
 function thumbSpec(){const g=i=>$("#th_"+i).value;return {ribbon:g("ribbon"),title:g("title"),left:{note:g("lnote"),label:g("llab"),verdict:g("lver")},right:{note:g("rnote"),label:g("rlab"),verdict:g("rver")}}}

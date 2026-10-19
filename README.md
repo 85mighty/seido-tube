@@ -16,6 +16,7 @@
              └ 모든 슬라이드 PNG + manifest.json → assets/<slug>/   ← 블로그 재사용 자산
 07 upload    unlisted 업로드 + 썸네일 → Telegram 승인요청 → --publish 로 금 19:00 예약공개
 08 blog      Claude → 기사 HTML → WP 미디어 업로드 → seido-note.com + seido-note.hatenablog.com
+09 reslice   (패널 ✂️) 대본 불변으로 슬라이드만 AI가 더 잘게 재구성 → 음성 재사용, 재렌더만
 ```
 
 하루 운영: `./run_pipeline.sh` 1회 → Telegram 미리보기 확인 → `--publish` → `08_blog_post.py --wp --hatena`

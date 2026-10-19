@@ -246,6 +246,13 @@ def tts(slug, body: dict):
         (d / "audio" / f"{sid}.mp3").unlink(missing_ok=True)
     return start_job(slug, ["python3", "scripts/05_tts.py", f"work/{slug}"])
 
+@app.post("/api/{slug}/reslice")
+def do_reslice(slug, body: dict):
+    """AI로 슬라이드를 더 잘게 재구성(대본 불변 → 음성 재사용) 후 바로 재렌더"""
+    sec = body.get("section"); target = float(body.get("sec", 18))
+    cmd = f"python3 scripts/09_reslice.py work/{slug} --sec {target}" + (f" --section {sec}" if sec else "") + f" && python3 scripts/06_render.py work/{slug}"
+    return start_job(slug, ["bash", "-c", cmd])
+
 @app.post("/api/{slug}/render")
 def do_render(slug):
     return start_job(slug, ["bash", "-c", f"python3 scripts/05_tts.py work/{slug} && python3 scripts/06_render.py work/{slug}"])
