@@ -12,7 +12,7 @@ import argparse, datetime as dt, json, os, sys, urllib.parse, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CFG = ROOT / "config"; SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube"]
+CFG = ROOT / "config"; SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube", "https://www.googleapis.com/auth/youtube.force-ssl"]
 
 def creds():
     from google.oauth2.credentials import Credentials
@@ -55,6 +55,12 @@ if __name__ == "__main__":
     vid = r["id"]
     if (wd / "thumbnail.png").exists():
         yt.thumbnails().set(videoId=vid, media_body=str(wd / "thumbnail.png")).execute()
+    if (wd / "subs.srt").exists():   # CC 트랙 (시청자가 자막 버튼으로 켜고 끔)
+        try:
+            yt.captions().insert(part="snippet", body={"snippet": {"videoId": vid, "language": "ja", "name": "日本語", "isDraft": False}},
+                                 media_body=MediaFileUpload(str(wd / "subs.srt"), mimetype="application/octet-stream")).execute()
+        except Exception as e:
+            print("caption upload skipped:", e)
     meta.write_text(json.dumps({"id": vid, "uploaded": dt.datetime.now().isoformat()}))
     telegram(f"🎬 확인 요청\n{js['title']}\nhttps://youtu.be/{vid}\n\n승인: python3 scripts/07_upload.py {wd} --publish")
     print("unlisted:", f"https://youtu.be/{vid}")

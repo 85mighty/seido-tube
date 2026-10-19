@@ -6,7 +6,7 @@
 usage: pip install playwright && playwright install chromium   (VPS 1회)
        python3 scripts/06_render.py work/<slug>
 """
-import html, json, shutil, subprocess, sys
+import html, json, os, shutil, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -116,6 +116,22 @@ def thumb_html(th):
             .replace("{{LNOTE}}", esc(l.get("note", ""))).replace("{{LLAB}}", lab(l.get("label"))).replace("{{LVER}}", ver(l.get("verdict")))
             .replace("{{RNOTE}}", esc(r.get("note", ""))).replace("{{RLAB}}", lab(r.get("label"))).replace("{{RVER}}", ver(r.get("verdict"))))
 
+KINSOKU_HEAD = "、。，．」』）】〕〉》!?！？ー々"
+def wrap_ja(text, width=20):
+    """일본어 자막 줄바꿈: 、。뒤에서 우선 끊고, 금칙 문자가 줄 머리에 오지 않게. 최대 2줄."""
+    text = text.strip()
+    if len(text) <= width:
+        return text
+    cut = -1
+    for i in range(min(width, len(text) - 1), 0, -1):   # 폭 안에서 가장 뒤의 구두점
+        if text[i - 1] in "、。" and text[i] not in KINSOKU_HEAD:
+            cut = i; break
+    if cut < 0:
+        cut = min(width, len(text) - 1)
+        while cut > 1 and text[cut] in KINSOKU_HEAD:
+            cut -= 1
+    return text[:cut].strip() + "\n" + text[cut:].strip()
+
 def srt_time(t):
     h, r = divmod(t, 3600); m, s = divmod(r, 60)
     return f"{int(h):02}:{int(m):02}:{int(s):02},{int((s % 1) * 1000):03}"
@@ -143,10 +159,20 @@ if __name__ == "__main__":
                 manifest.append(dict(file=name, section=s["id"], kind=sl.get("kind"), title=sl.get("title") or sl.get("big"),
                                      alt=sl.get("alt", ""), start=round(cur, 1), end=round(cur + per, 1), spec=sl))
                 concat += [f"file '{png.resolve()}'", f"duration {per:.3f}"]; n += 1; cur += per
-            sents = [x for x in s["narration"].replace("。", "。\n").split("\n") if x.strip()]; st = t["start"]
+            # 자막: 문장 → 40자 넘으면 、에서 다시 쪼갬 → 각 조각을 시간 비례 배분, 2줄 금칙 줄바꿈
+            import re as _re
+            sents = []
+            for x in [x for x in _re.split(r"(?<=[。！？!?])", s["narration"].replace("\n", "")) if x.strip()]:
+                while len(x) > 40:
+                    k = x.rfind("、", 0, 40)
+                    if k <= 0:
+                        break
+                    sents.append(x[: k + 1]); x = x[k + 1:]
+                sents.append(x)
+            st = t["start"]
             for x in sents:
                 d = t["dur"] * len(x) / max(1, t["chars"])
-                srt += [str(cue), f"{srt_time(st)} --> {srt_time(st + d)}", x.strip(), ""]; st += d; cue += 1
+                srt += [str(cue), f"{srt_time(st)} --> {srt_time(st + d)}", wrap_ja(x), ""]; st += d; cue += 1
         concat.append(f"file '{(frames / f'{n-1:03}.png').resolve()}'")
         page.set_viewport_size({"width": 1280, "height": 720})
         page.set_content(thumb_html(js.get("thumbnail", {}))); page.screenshot(path=str(wd / "thumbnail.png")); b.close()
@@ -157,7 +183,9 @@ if __name__ == "__main__":
     audio = wd / "audio" / "all.mp3"
     (wd / "audio" / "list.txt").write_text("\n".join(f"file '{(wd/'audio'/(s['id']+'.mp3')).resolve()}'" for s in js["sections"]))
     subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(wd / "audio" / "list.txt"), "-c", "copy", str(audio)], check=True)
+    burn = os.getenv("SUBTITLES", "on").lower() in ("on", "1", "true", "yes")
+    vf = (f"subtitles={wd/'subs.srt'}:force_style='FontName=Noto Sans CJK JP,FontSize=22,Outline=2,MarginV=40'," if burn else "") + "format=yuv420p,fps=30"
     subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(wd / "concat.txt"), "-i", str(audio),
-                    "-vf", f"subtitles={wd/'subs.srt'}:force_style='FontName=Noto Sans CJK JP,FontSize=22,Outline=2,MarginV=40',format=yuv420p,fps=30",
+                    "-vf", vf,
                     "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", "-shortest", str(wd / "final.mp4")], check=True)
     print("→", wd / "final.mp4", "|", assets, f"({len(manifest)} images)")
