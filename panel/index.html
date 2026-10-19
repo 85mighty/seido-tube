@@ -26,9 +26,15 @@
   pre{background:#111;color:#9f9;font-size:11px;padding:10px;max-height:240px;overflow:auto;border-radius:6px;white-space:pre-wrap}
   .badge{background:#ffd54f;border-radius:10px;padding:2px 8px;font-size:12px}
   .thumb img{width:100%;border-radius:6px;cursor:pointer}
+  #tl{position:relative;display:flex;height:64px;background:#222;border-radius:6px;margin-top:8px;overflow:hidden}
+  #tl .blk{position:relative;height:100%;border-right:2px solid #000;background:#444 center/cover;cursor:pointer;min-width:2px}
+  #tl .blk span{position:absolute;left:3px;bottom:2px;font-size:10px;color:#fff;text-shadow:0 0 3px #000;white-space:nowrap}
+  #tl .blk.sec0{border-left:3px solid #ffd54f}
+  #ph{position:absolute;top:0;bottom:0;width:2px;background:#ff3b3b;pointer-events:none}
+  .sl .nar{font-size:12px;line-height:1.5;background:#fff}
   #ed{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:20;align-items:center;justify-content:center}
-  #ed .box{background:#fff;border-radius:10px;padding:12px;display:grid;grid-template-columns:960px 300px;gap:12px}
-  #cv{position:relative;width:960px;height:540px;background:#eee center/contain no-repeat;border:1px solid #999;overflow:hidden;user-select:none}
+  #ed .box{background:#fff;border-radius:10px;padding:12px;display:grid;grid-template-columns:1344px 300px;gap:12px;max-height:96vh;overflow:auto}
+  #cv{position:relative;width:1344px;height:756px;background:#eee center/contain no-repeat;border:1px solid #999;overflow:hidden;user-select:none}
   .ovx{position:absolute;box-sizing:border-box;display:flex;align-items:center;white-space:pre-wrap;line-height:1.2;overflow:hidden;cursor:move;outline:1px dashed rgba(0,0,0,.25)}
   .ovx.sel{outline:2px solid #2b5fd9}
   .ovx .rz{position:absolute;right:0;bottom:0;width:14px;height:14px;background:#2b5fd9;cursor:nwse-resize}
@@ -49,12 +55,12 @@
   <div><div id="cv" onmousedown="cvDown(event)"></div>
     <div class="row"><button onclick="addOv('text')">＋텍스트</button><button onclick="addOv('box')">＋상자</button><button onclick="addOv('hl')">＋노란 강조</button><button onclick="addOv('arrow')">＋화살표</button>
     <button class="d" onclick="delOv()">선택 삭제</button><span style="flex:1"></span><button onclick="edPreview()">미리보기</button><button class="p" onclick="edSave()">저장</button><button onclick="edClose()">닫기</button></div>
-    <small style="color:#666">드래그=이동, 오른쪽아래 파란점=크기, 더블클릭=텍스트 편집. 좌표는 1920×1080 기준(화면은 1/2 축소)</small></div>
+    <small style="color:#666">드래그=이동, 오른쪽아래 파란점=크기, 더블클릭=텍스트 편집. 좌표는 1920×1080 기준(화면은 70% 축소)</small></div>
   <div id="props"></div></div></div>
 <main>
   <pre id="log" style="display:none"></pre>
   <div class="top">
-    <div><video id="video" controls preload="metadata"></video><div id="novideo" style="color:#888;padding:10px">final.mp4 없음 — 재렌더 필요</div></div>
+    <div><video id="video" controls preload="metadata"></video><div id="novideo" style="color:#888;padding:10px">final.mp4 없음 — 재렌더 필요</div><div id="tl"><div id="ph"></div></div><small style="color:#666">타임라인: 폭=길이, 클릭=이동, 노란 선=섹션 시작</small></div>
     <div class="card thumb">
       <b>썸네일</b> <small>(클릭=미리보기 갱신)</small>
       <img id="thumb" onclick="previewThumb()">
@@ -92,6 +98,9 @@ function render(){
       <div class="row"><button class="p" onclick="saveNar('${sec.id}')">대본 저장</button><button onclick="retts('${sec.id}')">이 섹션 음성 재생성</button></div>
       <small style="color:#666">대본을 고치면 음성 재생성 → 전체 재렌더 순서</small></div>
     <div class="slides">${sec.slides.map(sl=>slideCard(sec.id,sl)).join("")}</div></div></div>`).join("");
+  const total=Math.max(1,...S.sections.map(s=>(s.start||0)+(s.dur||0)));
+  $("#tl").innerHTML='<div id="ph"></div>'+S.sections.map(sec=>sec.slides.map((sl,j)=>`<div class="blk ${j===0?"sec0":""}" style="flex:${Math.max(0.5,sl.end-sl.start)};background-image:url('${sl.img?sl.img+"?v="+S.video_mtime:""}')" onclick="seek(${sl.start});document.getElementById('sl_${sec.id}_${sl.idx}').scrollIntoView({behavior:'smooth',block:'center'})" title="${sec.id} ${fmt(sl.start)}"><span>${j===0?sec.id:""}</span></div>`).join("")).join("");
+  $("#video").ontimeupdate=()=>{$("#ph").style.left=(100*$("#video").currentTime/total)+"%";};
   // 아직 렌더되지 않은 슬라이드(추가 직후)는 미리보기로 즉시 채움
   S.sections.forEach(sec=>sec.slides.forEach(sl=>{if(!sl.img)preview(sec.id,sl.idx);}));
 }
@@ -106,9 +115,10 @@ function slideCard(sid,sl){const sp=sl.spec,k=sp.kind||"bullets",id=`${sid}_${sl
   else if(k==="compare") f=F("title","title",sp.title)+F("左 note / label / verdict","left",[sp.left?.note,sp.left?.label,sp.left?.verdict].join(" / "))+F("右 note / label / verdict","right",[sp.right?.note,sp.right?.label,sp.right?.verdict].join(" / "));
   else if(k==="free") f=F("title (空なら見出しなし)","title",sp.title||"")+`<small style="color:#666">자유 슬라이드: 내용은 🎨 배치 편집에서</small>`;
   else f=F("JSON","json",JSON.stringify(sp,null,1),1);
-  return `<div class="sl" id="sl_${id}"><img src="${sl.img?sl.img+"?v="+S.video_mtime:""}" onclick="seek(${sl.start})" title="클릭=영상 이동">
-   <div class="m"><span class="time">${fmt(sl.start)} 〜 ${fmt(sl.end)}</span> · <select id="${id}_kind" onchange="changeKind('${sid}',${sl.idx},this.value)">${["title","bullets","table","compare","number","timeline","bar","free"].map(x=>`<option ${x===k?"selected":""}>${x}</option>`).join("")}</select>
-   <div class="f">${f}${F("alt (ブログ用説明)","alt",sp.alt||"")}${F("weight (時間配分の比重, 既定1)","weight",sp.weight||1)}</div>
+  return `<div class="sl" id="sl_${id}"><img src="${sl.img?sl.img+"?v="+S.video_mtime:""}" onclick="edOpen('${sid}',${sl.idx})" title="클릭=편집창 열기">
+   <div class="m"><span class="time">${fmt(sl.start)} 〜 ${fmt(sl.end)}</span> <button onclick="seek(${sl.start})" style="padding:2px 6px">▶</button> · <select id="${id}_kind" onchange="changeKind('${sid}',${sl.idx},this.value)">${["title","bullets","table","compare","number","timeline","bar","free"].map(x=>`<option ${x===k?"selected":""}>${x}</option>`).join("")}</select>
+   <div class="f"><label>この画面で読まれるナレーション ${sp.narration!==undefined?"":"<span class='badge'>自動分配 (저장하면 확정)</span>"}</label><textarea class="nar" rows="5" id="${id}_nar">${esc(sl.narration)}</textarea>
+   ${f}${F("alt (ブログ用説明)","alt",sp.alt||"")}${sp.narration!==undefined?"":F("weight (時間配分の比重, 既定1)","weight",sp.weight||1)}</div>
    <div class="row"><button onclick="preview('${sid}',${sl.idx})">미리보기</button><button class="p" onclick="saveSlide('${sid}',${sl.idx})">저장</button><button onclick="edOpen('${sid}',${sl.idx})">🎨 배치 편집${(sp.overlays||[]).length?` (${sp.overlays.length})`:""}</button>
    <button onclick="op('${sid}',${sl.idx},'add')">＋뒤에 추가</button><button onclick="op('${sid}',${sl.idx},'up')">↑</button><button onclick="op('${sid}',${sl.idx},'down')">↓</button><button class="d" onclick="if(confirm('삭제?'))op('${sid}',${sl.idx},'del')">삭제</button></div></div></div>`;}
 function collect(sid,idx){const id=`${sid}_${idx}`,g=i=>$(`#${id}_${i}`)?.value??"",k=$(`#${id}_kind`).value;let sp={kind:k};
@@ -121,10 +131,13 @@ function collect(sid,idx){const id=`${sid}_${idx}`,g=i=>$(`#${id}_${i}`)?.value?
   else if(k==="free") Object.assign(sp,{title:g("title")});
   else {try{sp=JSON.parse(g("json"))}catch(e){alert("JSON 오류: "+e.message);throw e}}
   sp.alt=g("alt"); sp.weight=parseFloat(g("weight"))||1;
-  const cur=S.sections.find(s=>s.id===sid).slides[idx].spec; if(cur.overlays) sp.overlays=cur.overlays; return sp;}
+  const cur=S.sections.find(s=>s.id===sid).slides[idx].spec; if(cur.overlays) sp.overlays=cur.overlays;
+  if($(`#${id}_nar`)) sp.narration=$(`#${id}_nar`).value; return sp;}
 async function preview(sid,idx){const sp=collect(sid,idx);const r=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({spec:sp,section:sid})});
   $(`#sl_${sid}_${idx} img`).src=URL.createObjectURL(await r.blob());}
-async function saveSlide(sid,idx){await api("slide",{section:sid,idx,spec:collect(sid,idx)});await preview(sid,idx);toast("저장됨 (영상 반영은 전체 재렌더)");}
+async function saveSlide(sid,idx){const sec=S.sections.find(s=>s.id===sid);const sp=collect(sid,idx);
+  if(!sec.slides.every(x=>x.spec.narration!==undefined)) await api("adopt_split",{section:sid});   // 자동 분배를 먼저 확정
+  await api("slide",{section:sid,idx,spec:sp});await load();await preview(sid,idx);toast("저장됨 — 대본을 바꿨으면 '이 섹션 음성 재생성' → 전체 재렌더");}
 async function op(sid,idx,o){await api("slide",{section:sid,idx,op:o});await load();}
 function changeKind(sid,idx,k){const sl=S.sections.find(s=>s.id===sid).slides[idx];sl.spec={kind:k,alt:sl.spec.alt,weight:sl.spec.weight};render();}
 async function saveNar(sid){const r=await api("narration",{section:sid,narration:$(`#nar_${sid}`).value});toast(`대본 저장됨 (${r.chars}字). 음성 재생성 필요`);}
@@ -138,7 +151,7 @@ function toggleLog(){const l=$("#log");l.style.display=l.style.display==="none"?
 function toast(m){const d=document.createElement("div");d.textContent=m;d.style.cssText="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:8px;z-index:9";document.body.appendChild(d);setTimeout(()=>d.remove(),2500);}
 // ---------- 배치 편집기 ----------
 let ED={sid:null,idx:null,ovs:[],sel:-1,drag:null};
-const SC=0.5;
+const SC=0.7;
 async function edOpen(sid,idx){ED.sid=sid;ED.idx=idx;const sp=collect(sid,idx);ED.base=Object.assign({},sp,{overlays:[]});ED.ovs=JSON.parse(JSON.stringify(sp.overlays||[]));ED.sel=-1;
   $("#ed").style.display="flex";
   const r=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({spec:ED.base,section:sid})});

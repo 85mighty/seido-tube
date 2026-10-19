@@ -8,7 +8,7 @@ run:  pip install fastapi uvicorn python-multipart
       pm2 start "python3 /root/seido-tube/panel/app.py" --name seido-panel && pm2 save
 env:  PANEL_PORT(8085), PANEL_USER/PANEL_PASS(설정하면 Basic 인증)
 """
-import base64, importlib.util, json, os, secrets, subprocess, sys, time
+import base64, importlib.util, json, os, re, secrets, subprocess, sys, time
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, Response
@@ -22,6 +22,29 @@ render = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(render
 
 app = FastAPI()
 JOBS = {}   # slug -> Popen
+
+SENT = re.compile(r"(?<=[。！？!?\n])")
+def split_narration(text, weights):
+    """섹션 대본을 문장 단위로 슬라이드 수만큼 분배 (글자수 비중 weights에 맞춰)."""
+    sents = [x for x in SENT.split(text) if x.strip()]
+    n = len(weights); out = [""] * n
+    if n == 0:
+        return out
+    total = sum(len(x) for x in sents); tw = sum(weights) or 1
+    targets = [total * w / tw for w in weights]; i = 0; acc = 0.0
+    for sent in sents:
+        if i < n - 1 and acc + len(sent) / 2 > sum(targets[: i + 1]):
+            i += 1
+        out[i] += sent; acc += len(sent)
+    return out
+
+def sync_section(sec):
+    """슬라이드별 narration 이 모두 있으면 섹션 대본 = 합, weight = 글자수"""
+    sl = sec.get("slides") or []
+    if sl and all("narration" in x for x in sl):
+        sec["narration"] = "".join(x["narration"] for x in sl)
+        for x in sl:
+            x["weight"] = max(1, len(x["narration"]))
 
 @app.middleware("http")
 async def auth(request: Request, call_next):
@@ -75,9 +98,12 @@ def state(slug):
         t = timing.get(s["id"], {}); slides = s.get("slides") or []
         ws = [float(sl.get("weight") or 1) for sl in slides]; cur = t.get("start", 0); out = []
         files = man.get(s["id"], [])
+        parts = [sl.get("narration") for sl in slides]
+        if not all(parts):   # 아직 슬라이드별 대본이 없으면 자동 분배해서 보여줌
+            parts = split_narration(s["narration"], ws)
         for j, sl in enumerate(slides):
             per = t.get("dur", 0) * ws[j] / (sum(ws) or 1)
-            out.append(dict(idx=j, spec=sl, start=round(cur, 1), end=round(cur + per, 1),
+            out.append(dict(idx=j, spec=sl, narration=parts[j], start=round(cur, 1), end=round(cur + per, 1),
                             img=f"/assets/{slug}/{files[j]['file']}" if j < len(files) else None)); cur += per
         secs.append(dict(id=s["id"], narration=s["narration"], chars=len(s["narration"]), start=t.get("start"), dur=t.get("dur"),
                          audio=f"/files/{slug}/audio/{s['id']}.mp3" if (d / "audio" / f"{s['id']}.mp3").exists() else None, slides=out))
@@ -112,6 +138,9 @@ def save_slide(slug, body: dict):
         sl[i + 1], sl[i] = sl[i], sl[i + 1]
     elif "spec" in body:
         sl[i] = body["spec"]
+    if op == "add" and sl and all("narration" in x for x in sl if x is not sl[i + 1]):
+        sl[i + 1]["narration"] = ""   # 새 슬라이드: 대본은 비워두고 이웃 슬라이드 대본을 잘라 옮기면 됨
+    sync_section(s)
     (d / "script.json").write_text(json.dumps(js, ensure_ascii=False, indent=1), encoding="utf-8")
     return {"ok": True}
 
@@ -119,8 +148,24 @@ def save_slide(slug, body: dict):
 def save_narration(slug, body: dict):
     d, js, _, _ = load(slug)
     s = next(x for x in js["sections"] if x["id"] == body["section"]); s["narration"] = body["narration"]
+    sl = s.get("slides") or []
+    if sl and all("narration" in x for x in sl):   # 섹션 대본을 통째로 고치면 슬라이드별로 다시 분배
+        for x, part in zip(sl, split_narration(s["narration"], [max(1, len(x["narration"])) for x in sl])):
+            x["narration"] = part; x["weight"] = max(1, len(part))
     (d / "script.json").write_text(json.dumps(js, ensure_ascii=False, indent=1), encoding="utf-8")
     return {"ok": True, "chars": len(s["narration"])}
+
+@app.post("/api/{slug}/adopt_split")
+def adopt_split(slug, body: dict):
+    """자동 분배된 슬라이드별 대본을 확정 저장 (이후 슬라이드별 편집 가능)"""
+    d, js, _, _ = load(slug)
+    s = next(x for x in js["sections"] if x["id"] == body["section"]); sl = s.get("slides") or []
+    ws = [float(x.get("weight") or 1) for x in sl]
+    for x, part in zip(sl, split_narration(s["narration"], ws)):
+        x["narration"] = part
+    sync_section(s)
+    (d / "script.json").write_text(json.dumps(js, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {"ok": True}
 
 @app.post("/api/{slug}/meta")
 def save_meta(slug, body: dict):

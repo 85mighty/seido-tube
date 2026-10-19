@@ -134,6 +134,8 @@ if __name__ == "__main__":
             t = timing[s["id"]]; slides = s.get("slides") or [{"kind": "bullets", "title": s["id"], "items": []}]
             # 슬라이드별 weight(기본 1)에 비례해 섹션 음성 길이를 배분
             ws = [float(sl.get("weight") or 1) for sl in slides]; cur = t["start"]
+            if all(sl.get("narration") for sl in slides):   # 슬라이드별 대본이 있으면 글자수 비례
+                ws = [max(1, len(sl["narration"])) for sl in slides]
             for j, sl in enumerate(slides):
                 per = t["dur"] * ws[j] / sum(ws)
                 page.set_content(slide_html(sl, s["id"])); png = frames / f"{n:03}.png"; page.screenshot(path=str(png))
