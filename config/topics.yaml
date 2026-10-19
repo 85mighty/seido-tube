@@ -1,0 +1,72 @@
+# seido-tube 토픽 설정
+# ranking_weight: 벤치마크 분석(analysis/topic_ranking.csv) 기준 가중치 (높을수록 먼저 큐에 올라감)
+# seido_note_category: 해당 주제를 seido-note.com 에 연결할 카테고리(없으면 신설 필요)
+
+channel:
+  name: "制度ノート チャンネル"   # 가칭
+  language: ja
+  target: "50〜60代 / 年金受給前後 / 申請しないと貰えない制度"
+  cadence: "weekly"            # 벤치마크: 매주 금요일 19:00 (JST)
+  publish_dow: 4               # 0=월 ... 4=금
+  publish_time: "19:00"
+  longform_minutes: [8, 12]    # 벤치마크는 24〜41분. 자동화 1차 목표는 8〜12분, 안정되면 15분+
+
+topics:
+  - key: kyufu_shinsei
+    name: 給付金・上乗せ申請
+    ranking_weight: 10
+    seido_note_category: 給付金            # 신설 필요 (현재 seido-note는 子育て支援 단일 카테고리)
+    seed_keywords: [年金生活者支援給付金, 振替加算, 加給年金, 高年齢求職者給付金, 調整給付金, 住民税非課税世帯 給付金]
+  - key: jukyu_nenrei
+    name: 受給開始年齢(繰り上げ/繰り下げ)
+    ranking_weight: 8
+    seido_note_category: 年金
+    seed_keywords: [年金 繰り上げ 繰り下げ, 年金 何歳から, 受給開始年齢 損益分岐]
+  - key: tsuchisho_check
+    name: 通知書・定期便チェック
+    ranking_weight: 8
+    seido_note_category: 年金
+    seasonal: {1: 源泉徴収票, 6: 年金額改定通知書/振込通知書, 10: 振込通知書, 12: 在職定時改定}
+    seed_keywords: [年金振込通知書 見方, ねんきん定期便 載らない年金, 年金 源泉徴収票]
+  - key: zaishoku
+    name: 働きながら年金(在職老齢年金・在職定時改定)
+    ranking_weight: 7
+    seido_note_category: 年金
+    seed_keywords: [在職老齢年金 2026, 在職定時改定, 65歳以降 働く 年金 増える, 再雇用 年金]
+  - key: rogo_shikin
+    name: 老後資金・平均額の現実
+    ranking_weight: 5
+    seido_note_category: 老後
+    seed_keywords: [厚生年金 平均 受給額, 老後資金 いくら必要, 60代 貯金 平均]
+  - key: kenko_hoken
+    name: 定年後の健康保険・マイナ保険証
+    ranking_weight: 5
+    seido_note_category: 健康保険
+    seed_keywords: [任意継続 国民健康保険 どっち, 退職後 健康保険 選び方, 資格確認書]
+  - key: kaisei
+    name: 年金改正・新ルール
+    ranking_weight: 5
+    seido_note_category: 年金
+    seed_keywords: [年金改正 2026, 基礎年金 底上げ, 遺族年金 改正]
+  - key: kosodate            # 기존 seido-note 자산 재활용용 (벤치마크 채널과는 다른 타깃)
+    name: 子育て支援
+    ranking_weight: 2
+    seido_note_category: 子育て支援
+    seed_keywords: [児童手当, 出産育児一時金, 育休 給付金]
+
+# 연간 시즌 캘린더 — 해당 월에는 topic 우선순위를 강제 상향
+calendar:
+  1:  [tsuchisho_check, kaisei]        # 源泉徴収票 / 年金額改定 발표
+  3:  [kyufu_shinsei]                  # 年度末 申請 마감류
+  4:  [kaisei, zaishoku]               # 4월 제도개정 시행
+  6:  [tsuchisho_check, kyufu_shinsei] # 年金額改定通知書 / 振込通知書
+  10: [tsuchisho_check, zaishoku]      # 振込通知書 / 在職定時改定 예고
+  12: [zaishoku, kyufu_shinsei]        # 在職定時改定 반영 / 年末 手続き
+
+# 타이틀 생성 규칙 (analysis/title_patterns.csv 기반)
+title_rules:
+  prefix_pool: ["【知らないと大損】", "【超重要】", "【申請忘れ続出】", "【2026年新ルール】", "【絶対申請して】"]
+  must_include: [金額(○万円), 対象者(○歳/○代), 命令形CTA(確認して/申請して)]
+  avoid: ["○選 리스트형(lift 0.53)", "【神改正】(lift 0.72)"]
+  masking: "핵심 숫자 1개는 伏せ字(〇) 처리 가능 (lift 1.56)"
+  suffix_tag: true   # 末尾【制度名】タグ (lift 1.26)
