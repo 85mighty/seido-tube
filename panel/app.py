@@ -190,6 +190,42 @@ def preview(slug, body: dict):
         pg.screenshot(path=str(out)); b.close()
     return FileResponse(out, headers={"Cache-Control": "no-store"})
 
+EXPLODE_JS = r"""
+() => {
+  const sel = ".hdr, h1, .big, .sub, li, th, td, .callout, .compare .note, .compare .lab, .compare .ver, .timeline .chars span, .ov";
+  const out = [];
+  for (const el of document.querySelectorAll(sel)) {
+    const r = el.getBoundingClientRect(); if (r.width < 4 || r.height < 4) continue;
+    const cs = getComputedStyle(el);
+    const bg = cs.backgroundColor === "rgba(0, 0, 0, 0)" ? "transparent" : cs.backgroundColor;
+    let border = "none";
+    if (parseFloat(cs.borderTopWidth) > 0 && cs.borderTopStyle !== "none") border = `${Math.round(parseFloat(cs.borderTopWidth))}px solid ${cs.borderTopColor}`;
+    if (parseFloat(cs.outlineWidth) > 0 && cs.outlineStyle !== "none") border = `${Math.round(parseFloat(cs.outlineWidth))}px solid ${cs.outlineColor}`;
+    let text = el.innerText.replace(/\n+/g, "\n").trim();
+    if (el.tagName === "LI") text = "✔ " + text;
+    out.push({x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), text,
+              size: Math.round(parseFloat(cs.fontSize)), bold: parseInt(cs.fontWeight) >= 700, color: cs.color, bg,
+              border, radius: Math.round(parseFloat(cs.borderTopLeftRadius) || 0),
+              align: el.tagName === "TD" || el.tagName === "TH" ? "center" : (cs.textAlign === "start" ? "left" : cs.textAlign), opacity: 1, pad: 6});
+  }
+  return out;
+}
+"""
+
+@app.post("/api/{slug}/explode")
+def explode(slug, body: dict):
+    """자동 생성 슬라이드의 글자·셀을 전부 개별 요소(overlay)로 분해 → 자유 편집용 free 슬라이드 스펙 반환 (저장 안 함)"""
+    wd(slug); spec = body["spec"]
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as p:
+        b = p.chromium.launch(); pg = b.new_page(viewport={"width": 1920, "height": 1080})
+        pg.set_content(render.slide_html(dict(spec, overlays=[]), body.get("section", ""))); ovs = pg.evaluate(EXPLODE_JS); b.close()
+    ovs += spec.get("overlays") or []
+    new = {"kind": "free", "alt": spec.get("alt", ""), "weight": spec.get("weight", 1), "overlays": ovs, "_orig": {k: v for k, v in spec.items() if k != "overlays"}}
+    if "narration" in spec:
+        new["narration"] = spec["narration"]
+    return {"spec": new}
+
 # ---------- jobs ----------
 def start_job(slug, cmd):
     d = wd(slug)

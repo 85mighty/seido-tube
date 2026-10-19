@@ -8,7 +8,11 @@
   button.p{background:#2b5fd9;color:#fff;border-color:#2b5fd9} button.d{background:#d32f2f;color:#fff;border-color:#d32f2f}
   button:disabled{opacity:.4}
   main{max-width:1500px;margin:0 auto;padding:20px}
-  .top{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px}
+  .top{display:grid;grid-template-columns:3fr 2fr;gap:16px;margin-bottom:20px;align-items:start}
+  .thumbbar{display:grid;grid-template-columns:420px 1fr;gap:16px;margin-bottom:16px}
+  #inspector .sl{background:#fff}
+  #inspector .sl img{aspect-ratio:16/9;object-fit:contain}
+  .sl.playing{outline:3px solid #ff3b3b}
   video{width:100%;background:#000;border-radius:8px}
   .card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:12px}
   .sec{background:#fff;border:1px solid #ddd;border-radius:8px;margin-bottom:18px;overflow:hidden}
@@ -38,7 +42,7 @@
   .ovx{position:absolute;box-sizing:border-box;display:flex;align-items:center;white-space:pre-wrap;line-height:1.2;overflow:hidden;cursor:move;outline:1px dashed rgba(0,0,0,.25)}
   .ovx.sel{outline:2px solid #2b5fd9}
   .ovx .rz{position:absolute;right:0;bottom:0;width:14px;height:14px;background:#2b5fd9;cursor:nwse-resize}
-  #props label{display:block;font-size:11px;color:#666;margin:6px 0 2px}
+  #props label,#thumbForm label{display:block;font-size:11px;color:#666;margin:6px 0 2px}
   #props .two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 </style></head>
 <body>
@@ -54,21 +58,21 @@
 <div id="ed"><div class="box">
   <div><div id="cv" onmousedown="cvDown(event)"></div>
     <div class="row"><button onclick="addOv('text')">＋텍스트</button><button onclick="addOv('box')">＋상자</button><button onclick="addOv('hl')">＋노란 강조</button><button onclick="addOv('arrow')">＋화살표</button>
-    <button class="d" onclick="delOv()">선택 삭제</button><span style="flex:1"></span><button onclick="edPreview()">미리보기</button><button class="p" onclick="edSave()">저장</button><button onclick="edClose()">닫기</button></div>
+    <button class="d" onclick="delOv()">선택 삭제</button><span style="flex:1"></span><button onclick="edExplode()" title="자동 생성된 제목·항목·표 셀을 전부 개별 요소로 바꿔 이동/크기/글자 편집">🔓 글자를 요소로 변환</button><button onclick="edRestore()" id="edRestoreBtn" style="display:none">↩ 원래 자동 레이아웃</button><button onclick="edPreview()">미리보기</button><button class="p" onclick="edSave()">저장</button><button onclick="edClose()">닫기</button></div>
     <small style="color:#666">드래그=이동, 오른쪽아래 파란점=크기, 더블클릭=텍스트 편집. 좌표는 1920×1080 기준(화면은 70% 축소)</small></div>
   <div id="props"></div></div></div>
 <main>
   <pre id="log" style="display:none"></pre>
-  <div class="top">
-    <div><video id="video" controls preload="metadata"></video><div id="novideo" style="color:#888;padding:10px">final.mp4 없음 — 재렌더 필요</div><div id="tl"><div id="ph"></div></div><small style="color:#666">타임라인: 폭=길이, 클릭=이동, 노란 선=섹션 시작</small></div>
-    <div class="card thumb">
-      <b>썸네일</b> <small>(클릭=미리보기 갱신)</small>
-      <img id="thumb" onclick="previewThumb()">
-      <div class="f" id="thumbForm"></div>
+  <div class="card thumbbar">
+    <div><b>썸네일</b> <small>(클릭=미리보기 갱신)</small><img id="thumb" onclick="previewThumb()" style="width:100%;border-radius:6px;cursor:pointer"></div>
+    <div><div class="f" id="thumbForm"></div>
       <div class="row"><button onclick="previewThumb()">미리보기</button><button class="p" onclick="saveThumb()">저장</button></div>
       <label style="font-size:11px;color:#666;display:block;margin-top:8px">제목</label><input id="ytitle">
-      <div class="row"><button class="p" onclick="saveTitle()">제목 저장</button></div>
-    </div>
+      <div class="row"><button class="p" onclick="saveTitle()">제목 저장</button></div></div>
+  </div>
+  <div class="top">
+    <div><video id="video" controls preload="metadata"></video><div id="novideo" style="color:#888;padding:10px">final.mp4 없음 — 재렌더 필요</div><div id="tl"><div id="ph"></div></div><small style="color:#666">타임라인: 폭=길이, 클릭=이동, 노란 선=섹션 시작</small></div>
+    <div id="inspector"><div class="card" style="color:#888">영상을 재생하면 지금 나오는 화면의 편집 폼이 여기에 표시됩니다</div></div>
   </div>
   <div id="sections"></div>
 </main>
@@ -83,9 +87,9 @@ function render(){
   const v=$("#video"); if(S.video){const src=S.video+"?v="+S.video_mtime; if(v.dataset.src!==src){v.src=src;v.dataset.src=src;} v.style.display="";$("#novideo").style.display="none";} else {v.style.display="none";$("#novideo").style.display="";}
   if(S.thumbnail) $("#thumb").src=S.thumbnail+"?v="+S.video_mtime;
   if(!$("#thumbForm").children.length){ const th=S.thumb||{};
-    $("#thumbForm").innerHTML=`<label>リボン</label><input id="th_ribbon"><label>タイトル(7文字)</label><input id="th_title">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><div><label>左 note</label><input id="th_lnote"><label>左 label</label><input id="th_llab"><label>左 verdict(4文字)</label><input id="th_lver"></div>
-    <div><label>右 note</label><input id="th_rnote"><label>右 label</label><input id="th_rlab"><label>右 verdict</label><input id="th_rver"></div></div>`;
+    $("#thumbForm").innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><div><label>リボン</label><input id="th_ribbon"></div><div><label>タイトル(7文字)</label><input id="th_title"></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;gap:6px"><div><label>左 note</label><input id="th_lnote"></div><div><label>左 label</label><input id="th_llab"></div><div><label>左 verdict(4文字)</label><input id="th_lver"></div>
+    <div><label>右 note</label><input id="th_rnote"></div><div><label>右 label</label><input id="th_rlab"></div><div><label>右 verdict</label><input id="th_rver"></div></div>`;
     fetch(`/files/${SLUG}/script.json`).then(r=>r.json()).then(js=>{const t=js.thumbnail||{};$("#th_ribbon").value=t.ribbon||"知らなきゃ損！";$("#th_title").value=t.title||"";
       $("#th_lnote").value=t.left?.note||"";$("#th_llab").value=t.left?.label||"";$("#th_lver").value=t.left?.verdict||"";$("#th_rnote").value=t.right?.note||"";$("#th_rlab").value=t.right?.label||"";$("#th_rver").value=t.right?.verdict||"";});
   }
@@ -100,13 +104,15 @@ function render(){
     <div class="slides">${sec.slides.map(sl=>slideCard(sec.id,sl)).join("")}</div></div></div>`).join("");
   const total=Math.max(1,...S.sections.map(s=>(s.start||0)+(s.dur||0)));
   $("#tl").innerHTML='<div id="ph"></div>'+S.sections.map(sec=>sec.slides.map((sl,j)=>`<div class="blk ${j===0?"sec0":""}" style="flex:${Math.max(0.5,sl.end-sl.start)};background-image:url('${sl.img?sl.img+"?v="+S.video_mtime:""}')" onclick="seek(${sl.start});document.getElementById('sl_${sec.id}_${sl.idx}').scrollIntoView({behavior:'smooth',block:'center'})" title="${sec.id} ${fmt(sl.start)}"><span>${j===0?sec.id:""}</span></div>`).join("")).join("");
-  $("#video").ontimeupdate=()=>{$("#ph").style.left=(100*$("#video").currentTime/total)+"%";};
+  $("#video").ontimeupdate=()=>{$("#ph").style.left=(100*$("#video").currentTime/total)+"%";updateInspector();};
+  $("#video").onseeked=()=>updateInspector();
+  INS.key=null;updateInspector(true);
   // 아직 렌더되지 않은 슬라이드(추가 직후)는 미리보기로 즉시 채움
   S.sections.forEach(sec=>sec.slides.forEach(sl=>{if(!sl.img)preview(sec.id,sl.idx);}));
 }
 function fmt(t){t=Math.round(t||0);return `${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`}
 function seek(t){const v=$("#video");v.currentTime=t;v.play();window.scrollTo({top:0,behavior:"smooth"})}
-function slideCard(sid,sl){const sp=sl.spec,k=sp.kind||"bullets",id=`${sid}_${sl.idx}`;
+function slideCard(sid,sl,pfx=""){const sp=sl.spec,k=sp.kind||"bullets",id=`${pfx}${sid}_${sl.idx}`;
   const F=(l,i,v,ta)=>`<label>${l}</label>`+(ta?`<textarea rows="3" id="${id}_${i}">${esc(v)}</textarea>`:`<input id="${id}_${i}" value="${esc(v)}">`);
   let f="";
   if(k==="title"||k==="number") f=F("big","big",sp.big)+F("sub","sub",sp.sub);
@@ -115,29 +121,29 @@ function slideCard(sid,sl){const sp=sl.spec,k=sp.kind||"bullets",id=`${sid}_${sl
   else if(k==="compare") f=F("title","title",sp.title)+F("左 note / label / verdict","left",[sp.left?.note,sp.left?.label,sp.left?.verdict].join(" / "))+F("右 note / label / verdict","right",[sp.right?.note,sp.right?.label,sp.right?.verdict].join(" / "));
   else if(k==="free") f=F("title (空なら見出しなし)","title",sp.title||"")+`<small style="color:#666">자유 슬라이드: 내용은 🎨 배치 편집에서</small>`;
   else f=F("JSON","json",JSON.stringify(sp,null,1),1);
-  return `<div class="sl" id="sl_${id}"><img src="${sl.img?sl.img+"?v="+S.video_mtime:""}" onclick="edOpen('${sid}',${sl.idx})" title="클릭=편집창 열기">
+  return `<div class="sl" id="sl_${id}"><img src="${sl.img?sl.img+"?v="+S.video_mtime:""}" onclick="edOpen('${sid}',${sl.idx},'${pfx}')" title="클릭=편집창 열기">
    <div class="m"><span class="time">${fmt(sl.start)} 〜 ${fmt(sl.end)}</span> <button onclick="seek(${sl.start})" style="padding:2px 6px">▶</button> · <select id="${id}_kind" onchange="changeKind('${sid}',${sl.idx},this.value)">${["title","bullets","table","compare","number","timeline","bar","free"].map(x=>`<option ${x===k?"selected":""}>${x}</option>`).join("")}</select>
    <div class="f"><label>この画面で読まれるナレーション ${sp.narration!==undefined?"":"<span class='badge'>自動分配 (저장하면 확정)</span>"}</label><textarea class="nar" rows="5" id="${id}_nar">${esc(sl.narration)}</textarea>
    ${f}${F("alt (ブログ用説明)","alt",sp.alt||"")}${sp.narration!==undefined?"":F("weight (時間配分の比重, 既定1)","weight",sp.weight||1)}</div>
-   <div class="row"><button onclick="preview('${sid}',${sl.idx})">미리보기</button><button class="p" onclick="saveSlide('${sid}',${sl.idx})">저장</button><button onclick="edOpen('${sid}',${sl.idx})">🎨 배치 편집${(sp.overlays||[]).length?` (${sp.overlays.length})`:""}</button>
+   <div class="row"><button onclick="preview('${sid}',${sl.idx},'${pfx}')">미리보기</button><button class="p" onclick="saveSlide('${sid}',${sl.idx},'${pfx}')">저장</button><button onclick="edOpen('${sid}',${sl.idx},'${pfx}')">🎨 배치 편집${(sp.overlays||[]).length?` (${sp.overlays.length})`:""}</button>
    <button onclick="op('${sid}',${sl.idx},'add')">＋뒤에 추가</button><button onclick="op('${sid}',${sl.idx},'up')">↑</button><button onclick="op('${sid}',${sl.idx},'down')">↓</button><button class="d" onclick="if(confirm('삭제?'))op('${sid}',${sl.idx},'del')">삭제</button></div></div></div>`;}
-function collect(sid,idx){const id=`${sid}_${idx}`,g=i=>$(`#${id}_${i}`)?.value??"",k=$(`#${id}_kind`).value;let sp={kind:k};
+function collect(sid,idx,pfx=""){const id=`${pfx}${sid}_${idx}`,g=i=>$(`#${id}_${i}`)?.value??"",k=$(`#${id}_kind`).value;let sp={kind:k};
   if(k==="title"||k==="number") Object.assign(sp,{big:g("big"),sub:g("sub")});
   else if(k==="bullets") Object.assign(sp,{title:g("title"),items:g("items").split("\n").filter(x=>x.trim())});
   else if(k==="table"){const hl=g("highlight").split(",").map(x=>parseInt(x)).filter(x=>!isNaN(x));
     Object.assign(sp,{title:g("title"),header:g("header").split(","),rows:g("rows").split("\n").filter(x=>x.trim()).map(r=>r.split(",")),highlight:hl.length===2?hl:null,callout:g("callout")||null});}
   else if(k==="compare"){const L=g("left").split("/").map(x=>x.trim()),R=g("right").split("/").map(x=>x.trim());
     Object.assign(sp,{title:g("title"),left:{note:L[0],label:L[1],verdict:L[2]},right:{note:R[0],label:R[1],verdict:R[2]}});}
-  else if(k==="free") Object.assign(sp,{title:g("title")});
+  else if(k==="free"){Object.assign(sp,{title:g("title")});const c0=S.sections.find(s=>s.id===sid).slides[idx].spec;if(c0._orig)sp._orig=c0._orig;}
   else {try{sp=JSON.parse(g("json"))}catch(e){alert("JSON 오류: "+e.message);throw e}}
   sp.alt=g("alt"); sp.weight=parseFloat(g("weight"))||1;
   const cur=S.sections.find(s=>s.id===sid).slides[idx].spec; if(cur.overlays) sp.overlays=cur.overlays;
   if($(`#${id}_nar`)) sp.narration=$(`#${id}_nar`).value; return sp;}
-async function preview(sid,idx){const sp=collect(sid,idx);const r=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({spec:sp,section:sid})});
-  $(`#sl_${sid}_${idx} img`).src=URL.createObjectURL(await r.blob());}
-async function saveSlide(sid,idx){const sec=S.sections.find(s=>s.id===sid);const sp=collect(sid,idx);
+async function preview(sid,idx,pfx=""){const sp=collect(sid,idx,pfx);const r=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({spec:sp,section:sid})});
+  const u=URL.createObjectURL(await r.blob());document.querySelectorAll(`#sl_${sid}_${idx} img, #sl_ins_${sid}_${idx} img`).forEach(i=>i.src=u);}
+async function saveSlide(sid,idx,pfx=""){const sec=S.sections.find(s=>s.id===sid);const sp=collect(sid,idx,pfx);
   if(!sec.slides.every(x=>x.spec.narration!==undefined)) await api("adopt_split",{section:sid});   // 자동 분배를 먼저 확정
-  await api("slide",{section:sid,idx,spec:sp});await load();await preview(sid,idx);toast("저장됨 — 대본을 바꿨으면 '이 섹션 음성 재생성' → 전체 재렌더");}
+  await api("slide",{section:sid,idx,spec:sp});await load();await preview(sid,idx);INS.key=null;updateInspector(true);toast("저장됨 — 대본을 바꿨으면 '이 섹션 음성 재생성' → 전체 재렌더");}
 async function op(sid,idx,o){await api("slide",{section:sid,idx,op:o});await load();}
 function changeKind(sid,idx,k){const sl=S.sections.find(s=>s.id===sid).slides[idx];sl.spec={kind:k,alt:sl.spec.alt,weight:sl.spec.weight};render();}
 async function saveNar(sid){const r=await api("narration",{section:sid,narration:$(`#nar_${sid}`).value});toast(`대본 저장됨 (${r.chars}字). 음성 재생성 필요`);}
@@ -152,11 +158,19 @@ function toast(m){const d=document.createElement("div");d.textContent=m;d.style.
 // ---------- 배치 편집기 ----------
 let ED={sid:null,idx:null,ovs:[],sel:-1,drag:null};
 const SC=0.7;
-async function edOpen(sid,idx){ED.sid=sid;ED.idx=idx;const sp=collect(sid,idx);ED.base=Object.assign({},sp,{overlays:[]});ED.ovs=JSON.parse(JSON.stringify(sp.overlays||[]));ED.sel=-1;
-  $("#ed").style.display="flex";
+async function edOpen(sid,idx,pfx=""){ED.sid=sid;ED.idx=idx;const sp=collect(sid,idx,pfx);ED.base=Object.assign({},sp,{overlays:[]});ED.ovs=JSON.parse(JSON.stringify(sp.overlays||[]));ED.sel=-1;
+  $("#ed").style.display="flex";$("#edRestoreBtn").style.display=sp._orig?"":"none";
   const r=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({spec:ED.base,section:sid})});
   $("#cv").style.backgroundImage=`url(${URL.createObjectURL(await r.blob())})`;edDraw();}
 function edClose(){$("#ed").style.display="none";}
+async function edExplode(){if(!confirm("이 화면의 제목·항목·표 셀을 전부 개별 요소로 바꿉니다. 이후엔 폼(title/items 등) 대신 편집창에서 직접 고칩니다. 계속?"))return;
+  const r=await api("explode",{spec:Object.assign({},ED.base,{overlays:ED.ovs}),section:ED.sid});const sp=r.spec;
+  ED.ovs=sp.overlays;ED.base=Object.assign({},sp,{overlays:[]});ED.sel=-1;
+  const pv=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({spec:ED.base,section:ED.sid})});
+  $("#cv").style.backgroundImage=`url(${URL.createObjectURL(await pv.blob())})`;$("#edRestoreBtn").style.display="";edDraw();toast("요소로 변환됨 — 저장하면 확정");}
+async function edRestore(){if(!ED.base._orig||!confirm("자동 레이아웃으로 되돌립니다 (배치 편집 내용은 사라짐)"))return;const o=ED.base._orig;ED.base=Object.assign({},o,{overlays:[]});ED.ovs=[];ED.sel=-1;
+  const pv=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({spec:ED.base,section:ED.sid})});
+  $("#cv").style.backgroundImage=`url(${URL.createObjectURL(await pv.blob())})`;$("#edRestoreBtn").style.display="none";edDraw();}
 function addOv(t){const base={x:200,y:300,w:700,h:140,size:56,bold:true,color:"#1e1e1e",bg:"transparent",border:"none",radius:0,align:"center",opacity:1,pad:10,text:""};
   if(t==="text") Object.assign(base,{text:"ここに文字"});
   if(t==="box") Object.assign(base,{text:"",bg:"#ffffff",border:"6px solid #d32f2f",radius:20});
@@ -192,8 +206,16 @@ $("#cv").addEventListener("dblclick",e=>{const el=e.target.closest(".ovx");if(!e
 document.addEventListener("keydown",e=>{if($("#ed").style.display==="flex"&&e.key==="Delete"&&document.activeElement.tagName!=="INPUT"&&document.activeElement.tagName!=="TEXTAREA")delOv();});
 async function edPreview(){const sp=Object.assign({},ED.base,{overlays:ED.ovs});const r=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({spec:sp,section:ED.sid})});
   const w=window.open("");w.document.write(`<img src="${URL.createObjectURL(await r.blob())}" style="max-width:100%">`);}
-async function edSave(){const sl=S.sections.find(s=>s.id===ED.sid).slides[ED.idx];sl.spec.overlays=ED.ovs;const sp=Object.assign({},ED.base,{overlays:ED.ovs});
-  await api("slide",{section:ED.sid,idx:ED.idx,spec:sp});edClose();await load();await preview(ED.sid,ED.idx);toast("배치 저장됨 (영상 반영은 전체 재렌더)");}
+async function edSave(){const sp=Object.assign({},ED.base,{overlays:ED.ovs});
+  await api("slide",{section:ED.sid,idx:ED.idx,spec:sp});edClose();await load();await preview(ED.sid,ED.idx);INS.key=null;updateInspector(true);toast("배치 저장됨 (영상 반영은 전체 재렌더)");}
+// ---------- 재생 중인 슬라이드 편집 폼 ----------
+let INS={key:null};
+function updateInspector(force){const t=$("#video").currentTime||0;let hit=null;
+  for(const sec of S.sections)for(const sl of sec.slides)if(t>=sl.start&&t<sl.end){hit={sec,sl};break;}
+  if(!hit){const sec=S.sections[0];if(!sec)return;hit={sec,sl:sec.slides[0]};}
+  const key=hit.sec.id+"_"+hit.sl.idx;if(key===INS.key&&!force)return;INS.key=key;
+  document.querySelectorAll(".sl.playing").forEach(e=>e.classList.remove("playing"));$(`#sl_${key}`)?.classList.add("playing");
+  $("#inspector").innerHTML=`<div style="font-weight:700;margin-bottom:6px">▶ 지금 화면: <span style="color:#2b5fd9">${hit.sec.id}</span> #${hit.sl.idx+1}</div>`+slideCard(hit.sec.id,hit.sl,"ins_");}
 let timer=null;function poll(){clearInterval(timer);timer=setInterval(async()=>{await load();if(!S.running){clearInterval(timer);toast("작업 완료");}},4000);}
 load();
 </script></body></html>
