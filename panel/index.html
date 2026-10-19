@@ -48,8 +48,8 @@
 <body>
 <header>
   <h1 id="title"></h1>
-  <span id="status" class="badge" style="display:none">작업 중…</span>
-  <button onclick="job('render')" class="p">전체 재렌더 (음성 없는 섹션만 생성 + 영상)</button>
+  <span id="status" class="badge" style="display:none">작업 중…</span><span id="est" class="badge" style="display:none;background:#cfe3ff">음성 전 — 시간은 추정치</span>
+  <button onclick="job('render')" class="p">🔊 음성 생성 + 영상 렌더</button><button onclick="job('images')">🖼 이미지만 다시</button>
   <button onclick="reslice()" title="대본은 그대로, 슬라이드만 AI가 15~25초 단위로 다시 잘라 이미지를 늘림 (토큰만 사용, 음성 재사용)">✂️ AI로 전체 더 잘게</button>
   <button onclick="job('upload')">YouTube 업로드(비공개)</button>
   <button onclick="job('upload',{publish:true})">금 19:00 공개예약</button>
@@ -84,7 +84,7 @@ const api=(p,b)=>fetch(`/api/${SLUG}/${p}`,{method:"POST",headers:{"content-type
 async function load(){S=await (await fetch(`/api/${SLUG}/state`)).json();render();}
 function render(){
   $("#title").textContent=S.title; $("#ytitle").value=S.title;
-  $("#status").style.display=S.running?"":"none"; $("#log").textContent=S.log;
+  $("#status").style.display=S.running?"":"none"; $("#log").textContent=S.log; $("#est").style.display=S.sections.some(s=>s.estimated)?"":"none";
   const v=$("#video"); if(S.video){const src=S.video+"?v="+S.video_mtime; if(v.dataset.src!==src){v.src=src;v.dataset.src=src;} v.style.display="";$("#novideo").style.display="none";} else {v.style.display="none";$("#novideo").style.display="";}
   if(S.thumbnail) $("#thumb").src=S.thumbnail+"?v="+S.video_mtime;
   if(!$("#thumbForm").children.length){ const th=S.thumb||{};
@@ -96,12 +96,12 @@ function render(){
   }
   $("#sections").innerHTML=S.sections.map(sec=>`
   <div class="sec" id="sec_${sec.id}"><div class="h"><b>${sec.id}</b><span class="t">${fmt(sec.start)} 〜 ${fmt((sec.start||0)+(sec.dur||0))} (${(sec.dur||0).toFixed(1)}s · ${sec.chars}字)</span>
-    ${sec.audio?`<audio controls preload="none" src="${sec.audio}?v=${S.video_mtime}" style="height:30px"></audio>`:`<span class="badge">음성 없음</span>`}
+    ${sec.audio?`<audio controls preload="none" src="${sec.audio}?v=${S.video_mtime}" style="height:30px"></audio>`:`<span class="badge">음성 아직 없음</span>`}
     <span style="flex:1"></span><button onclick="reslice('${sec.id}')">✂️ 이 섹션 더 잘게</button><button onclick="seek(${sec.start||0})">▶ 영상 여기로</button></div>
    <div class="body"><div>
       <textarea rows="14" id="nar_${sec.id}">${esc(sec.narration)}</textarea>
-      <div class="row"><button class="p" onclick="saveNar('${sec.id}')">대본 저장</button><button onclick="retts('${sec.id}')">이 섹션 음성 재생성</button></div>
-      <small style="color:#666">대본을 고치면 음성 재생성 → 전체 재렌더 순서</small></div>
+      <div class="row"><button class="p" onclick="saveNar('${sec.id}')">대본 저장</button><button onclick="retts('${sec.id}')">이 섹션 음성 재생성 + 렌더</button></div>
+      <small style="color:#666">음성은 슬라이드 단위로 생성되어 화면 길이 = 음성 길이 (바뀐 슬라이드만 재생성)</small></div>
     <div class="slides">${sec.slides.map(sl=>slideCard(sec.id,sl)).join("")}</div></div></div>`).join("");
   const total=Math.max(1,...S.sections.map(s=>(s.start||0)+(s.dur||0)));
   $("#tl").innerHTML='<div id="ph"></div>'+S.sections.map(sec=>sec.slides.map((sl,j)=>`<div class="blk ${j===0?"sec0":""}" style="flex:${Math.max(0.5,sl.end-sl.start)};background-image:url('${sl.img?sl.img+"?v="+S.video_mtime:""}')" onclick="seek(${sl.start});document.getElementById('sl_${sec.id}_${sl.idx}').scrollIntoView({behavior:'smooth',block:'center'})" title="${sec.id} ${fmt(sl.start)}"><span>${j===0?sec.id:""}</span></div>`).join("")).join("");
@@ -148,7 +148,7 @@ async function saveSlide(sid,idx,pfx=""){const sec=S.sections.find(s=>s.id===sid
 async function op(sid,idx,o){await api("slide",{section:sid,idx,op:o});await load();}
 function changeKind(sid,idx,k){const sl=S.sections.find(s=>s.id===sid).slides[idx];sl.spec={kind:k,alt:sl.spec.alt,weight:sl.spec.weight};render();}
 async function saveNar(sid){const r=await api("narration",{section:sid,narration:$(`#nar_${sid}`).value});toast(`대본 저장됨 (${r.chars}字). 음성 재생성 필요`);}
-async function retts(sid){if(!confirm("이 섹션 음성을 다시 만듭니다 (ElevenLabs 크레딧 사용)"))return;await api("tts",{sections:[sid]});poll();}
+async function retts(sid){if(!confirm("이 섹션 음성을 다시 만들고 영상을 렌더합니다 (ElevenLabs 크레딧 사용)"))return;await api("tts",{sections:[sid]});poll();}
 async function reslice(sid){const sec=prompt(`${sid?sid+" 섹션":"전체"}을 AI로 더 잘게 나눕니다 (대본 불변, 음성 재사용, 토큰만 사용).\n1슬라이드 목표 초수를 입력 (작을수록 더 잘게):`,"18");if(!sec)return;
   try{await api("reslice",{section:sid||null,sec:parseFloat(sec)});toast("재구성 + 재렌더 시작 (수 분 소요)");poll();}catch(e){alert("실행 실패: "+e.message)}}
 async function job(name,body){if(!confirm(name+" 실행?"))return;try{await api(name,body||{});poll();}catch(e){alert("실행 실패: "+e.message)}}

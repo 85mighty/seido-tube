@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
-# 한 편 끝까지: 큐 → 대본 → 캐릭터 → 음성 → 렌더 → (unlisted 업로드 + Telegram 승인요청)
-# usage: ./run_pipeline.sh            # 큐의 다음 todo 1건
-#        ./run_pipeline.sh --row 3    # 특정 행
-#        승인 후:  python3 scripts/07_upload.py work/<slug> --publish && python3 scripts/08_blog_post.py work/<slug> --wp --hatena
+# 기본: 큐 → 대본+슬라이드 생성 → 이미지만 렌더 → 패널에서 검수   (음성·영상은 패널의 버튼으로)
+#   ./run_pipeline.sh            # 큐의 다음 todo 1건
+#   ./run_pipeline.sh --row 3    # 특정 행
+#   FULL=1 ./run_pipeline.sh     # 음성+영상(+업로드)까지 한 번에
 set -euo pipefail
 cd "$(dirname "$0")"
 set -a; [ -f .env ] && source .env; set +a
 
-OUT=$(python3 scripts/04_script_gen.py --minutes "${MINUTES:-10}" "$@")
+OUT=$(python3 scripts/04_script_gen.py --minutes "${MINUTES:-20}" "$@")
 echo "$OUT"
 SLUG=$(echo "$OUT" | head -1)
 WD="work/$SLUG"
 
-# python3 scripts/06a_images.py "$WD"   # 캐릭터 일러스트는 보류 (필요 시 주석 해제)
+if [ "${FULL:-0}" != "1" ]; then
+  python3 scripts/06_render.py "$WD"
+  echo "DONE (대본+이미지) → 패널에서 검수: http://$(hostname -I | awk '{print $1}'):${PANEL_PORT:-8085}/w/$SLUG"
+  exit 0
+fi
 python3 scripts/05_tts.py "$WD"
 python3 scripts/06_render.py "$WD"
 if [ "${SKIP_UPLOAD:-0}" = "1" ] || [ ! -f config/client_secret.json ]; then

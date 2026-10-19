@@ -66,6 +66,10 @@ def load(slug):
     d = wd(slug)
     js = json.loads((d / "script.json").read_text(encoding="utf-8"))
     timing = {t["id"]: t for t in json.loads((d / "timing.json").read_text())} if (d / "timing.json").exists() else {}
+    if not timing:   # 음성 전 단계: 글자수로 추정
+        CPM = int(os.getenv("CHARS_PER_MIN", "350")); cur = 0.0
+        for s in js["sections"]:
+            dur = max(3, len(s["narration"]) / CPM * 60); timing[s["id"]] = dict(id=s["id"], start=round(cur, 2), dur=round(dur, 2), estimated=True); cur += dur
     man = {}
     mp = ASSETS / slug / "manifest.json"
     if mp.exists():
@@ -101,11 +105,12 @@ def state(slug):
         parts = [sl.get("narration") for sl in slides]
         if not all(parts):   # 아직 슬라이드별 대본이 없으면 자동 분배해서 보여줌
             parts = split_narration(s["narration"], ws)
+        exact = {p["idx"]: p["dur"] for p in (t.get("slides") or [])} if len(t.get("slides") or []) == len(slides) else None
         for j, sl in enumerate(slides):
-            per = t.get("dur", 0) * ws[j] / (sum(ws) or 1)
-            out.append(dict(idx=j, spec=sl, narration=parts[j], start=round(cur, 1), end=round(cur + per, 1),
+            per = exact[j] if exact else t.get("dur", 0) * ws[j] / (sum(ws) or 1)
+            out.append(dict(idx=j, spec=sl, narration=parts[j], start=round(cur, 1), end=round(cur + per, 1), exact=bool(exact),
                             img=f"/assets/{slug}/{files[j]['file']}" if j < len(files) else None)); cur += per
-        secs.append(dict(id=s["id"], narration=s["narration"], chars=len(s["narration"]), start=t.get("start"), dur=t.get("dur"),
+        secs.append(dict(id=s["id"], narration=s["narration"], chars=len(s["narration"]), start=t.get("start"), dur=t.get("dur"), estimated=t.get("estimated", False),
                          audio=f"/files/{slug}/audio/{s['id']}.mp3" if (d / "audio" / f"{s['id']}.mp3").exists() else None, slides=out))
     job = JOBS.get(slug); running = job is not None and job.poll() is None
     return dict(slug=slug, title=js["title"], thumbnail=f"/files/{slug}/thumbnail.png" if (d / "thumbnail.png").exists() else None,
@@ -243,8 +248,11 @@ def tts(slug, body: dict):
     """섹션 음성 재생성: 해당 mp3 삭제 후 05 실행(기존 mp3 는 재사용되므로 그 섹션만 새로 만듦)"""
     d = wd(slug)
     for sid in body.get("sections", []):
-        (d / "audio" / f"{sid}.mp3").unlink(missing_ok=True)
-    return start_job(slug, ["python3", "scripts/05_tts.py", f"work/{slug}"])
+        for f in (d / "audio").glob(f"{sid}.mp3") if (d / "audio").exists() else []:
+            f.unlink()
+        for f in (d / "audio").glob(f"{sid}_*.mp3") if (d / "audio").exists() else []:
+            f.unlink()
+    return start_job(slug, ["bash", "-c", f"python3 scripts/05_tts.py work/{slug} && python3 scripts/06_render.py work/{slug}"])
 
 @app.post("/api/{slug}/reslice")
 def do_reslice(slug, body: dict):
@@ -252,6 +260,11 @@ def do_reslice(slug, body: dict):
     sec = body.get("section"); target = float(body.get("sec", 18))
     cmd = f"python3 scripts/09_reslice.py work/{slug} --sec {target}" + (f" --section {sec}" if sec else "") + f" && python3 scripts/06_render.py work/{slug}"
     return start_job(slug, ["bash", "-c", cmd])
+
+@app.post("/api/{slug}/images")
+def do_images(slug):
+    """이미지(PNG)만 다시 렌더. timing.json 이 있으면 영상도 다시 만들어짐"""
+    return start_job(slug, ["python3", "scripts/06_render.py", f"work/{slug}"])
 
 @app.post("/api/{slug}/render")
 def do_render(slug):

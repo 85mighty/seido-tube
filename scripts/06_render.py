@@ -139,7 +139,19 @@ def srt_time(t):
 if __name__ == "__main__":
     wd = Path(sys.argv[1]); slug = wd.name
     js = json.loads((wd / "script.json").read_text(encoding="utf-8"))
-    timing = {t["id"]: t for t in json.loads((wd / "timing.json").read_text(encoding="utf-8"))}
+    CPM = int(os.getenv("CHARS_PER_MIN", "350"))
+    images_only = not (wd / "timing.json").exists()
+    if images_only:   # 음성 전 단계: 글자수로 시간 추정, PNG 와 manifest 만 생성 (영상 없음)
+        timing, cur = {}, 0.0
+        for s in js["sections"]:
+            sl = s.get("slides") or []
+            parts = [dict(idx=j, start=round(cur + sum(len(x.get("narration") or "") for x in sl[:j]) / CPM * 60, 2),
+                          dur=round(max(3, len(x.get("narration") or "") / CPM * 60), 2)) for j, x in enumerate(sl)] if all(x.get("narration") for x in sl) else None
+            d = max(3, len(s["narration"]) / CPM * 60)
+            timing[s["id"]] = dict(id=s["id"], start=round(cur, 2), dur=round(d, 2), chars=len(s["narration"]), slides=parts); cur += d
+        print("(timing.json 없음 → 이미지만 렌더, 시간은 추정치)")
+    else:
+        timing = {t["id"]: t for t in json.loads((wd / "timing.json").read_text(encoding="utf-8"))}
     from playwright.sync_api import sync_playwright
     frames = wd / "frames"; frames.mkdir(exist_ok=True)
     assets = ROOT / "assets" / slug; assets.mkdir(parents=True, exist_ok=True)
@@ -152,27 +164,36 @@ if __name__ == "__main__":
             ws = [float(sl.get("weight") or 1) for sl in slides]; cur = t["start"]
             if all(sl.get("narration") for sl in slides):   # 슬라이드별 대본이 있으면 글자수 비례
                 ws = [max(1, len(sl["narration"])) for sl in slides]
+            exact = {p["idx"]: p["dur"] for p in (t.get("slides") or [])} if len(t.get("slides") or []) == len(slides) else None
             for j, sl in enumerate(slides):
-                per = t["dur"] * ws[j] / sum(ws)
+                per = exact[j] if exact else t["dur"] * ws[j] / sum(ws)   # 슬라이드별 음성이 있으면 실제 길이
                 page.set_content(slide_html(sl, s["id"])); png = frames / f"{n:03}.png"; page.screenshot(path=str(png))
                 name = f"{n:03}_{s['id']}_{sl.get('kind','bullets')}.png"; shutil.copy(png, assets / name)
                 manifest.append(dict(file=name, section=s["id"], kind=sl.get("kind"), title=sl.get("title") or sl.get("big"),
                                      alt=sl.get("alt", ""), start=round(cur, 1), end=round(cur + per, 1), spec=sl))
                 concat += [f"file '{png.resolve()}'", f"duration {per:.3f}"]; n += 1; cur += per
-            # 자막: 문장 → 40자 넘으면 、에서 다시 쪼갬 → 각 조각을 시간 비례 배분, 2줄 금칙 줄바꿈
+            # 자막: (슬라이드 음성이 있으면 슬라이드 구간 안에서) 문장 → 40자 넘으면 、에서 쪼갬 → 시간 비례, 2줄 금칙 줄바꿈
             import re as _re
-            sents = []
-            for x in [x for x in _re.split(r"(?<=[。！？!?])", s["narration"].replace("\n", "")) if x.strip()]:
-                while len(x) > 40:
-                    k = x.rfind("、", 0, 40)
-                    if k <= 0:
-                        break
-                    sents.append(x[: k + 1]); x = x[k + 1:]
-                sents.append(x)
-            st = t["start"]
-            for x in sents:
-                d = t["dur"] * len(x) / max(1, t["chars"])
-                srt += [str(cue), f"{srt_time(st)} --> {srt_time(st + d)}", wrap_ja(x), ""]; st += d; cue += 1
+            def cues_for(text, st, dur):
+                global cue
+                sents = []
+                for x in [x for x in _re.split(r"(?<=[。！？!?])", text.replace("\n", "")) if x.strip()]:
+                    while len(x) > 40:
+                        k = x.rfind("、", 0, 40)
+                        if k <= 0:
+                            break
+                        sents.append(x[: k + 1]); x = x[k + 1:]
+                    sents.append(x)
+                tot = sum(len(x) for x in sents) or 1
+                for x in sents:
+                    d = dur * len(x) / tot
+                    srt.append(str(cue)); srt.append(f"{srt_time(st)} --> {srt_time(st + d)}"); srt.append(wrap_ja(x)); srt.append(""); st += d; cue += 1
+            if exact:
+                st = t["start"]
+                for j, sl in enumerate(slides):
+                    cues_for(sl["narration"], st, exact[j]); st += exact[j]
+            else:
+                cues_for(s["narration"], t["start"], t["dur"])
         concat.append(f"file '{(frames / f'{n-1:03}.png').resolve()}'")
         page.set_viewport_size({"width": 1280, "height": 720})
         page.set_content(thumb_html(js.get("thumbnail", {}))); page.screenshot(path=str(wd / "thumbnail.png")); b.close()
@@ -180,10 +201,12 @@ if __name__ == "__main__":
     (assets / "manifest.json").write_text(json.dumps(dict(slug=slug, title=js["title"], blog=js.get("blog", {}), notes=js.get("notes", {}),
                                                             images=manifest), ensure_ascii=False, indent=1), encoding="utf-8")
     (wd / "concat.txt").write_text("\n".join(concat), encoding="utf-8"); (wd / "subs.srt").write_text("\n".join(srt), encoding="utf-8")
+    if images_only:
+        print("→ images only:", assets, f"({len(manifest)} images). 음성 생성 후 다시 실행하면 영상이 만들어집니다"); sys.exit(0)
     audio = wd / "audio" / "all.mp3"
     (wd / "audio" / "list.txt").write_text("\n".join(f"file '{(wd/'audio'/(s['id']+'.mp3')).resolve()}'" for s in js["sections"]))
     subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(wd / "audio" / "list.txt"), "-c", "copy", str(audio)], check=True)
-    burn = os.getenv("SUBTITLES", "on").lower() in ("on", "1", "true", "yes")
+    burn = os.getenv("SUBTITLES", "off").lower() in ("on", "1", "true", "yes")
     vf = (f"subtitles={wd/'subs.srt'}:force_style='FontName=Noto Sans CJK JP,FontSize=22,Outline=2,MarginV=40'," if burn else "") + "format=yuv420p,fps=30"
     subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(wd / "concat.txt"), "-i", str(audio),
                     "-vf", vf,
