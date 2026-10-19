@@ -26,6 +26,14 @@
   pre{background:#111;color:#9f9;font-size:11px;padding:10px;max-height:240px;overflow:auto;border-radius:6px;white-space:pre-wrap}
   .badge{background:#ffd54f;border-radius:10px;padding:2px 8px;font-size:12px}
   .thumb img{width:100%;border-radius:6px;cursor:pointer}
+  #ed{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:20;align-items:center;justify-content:center}
+  #ed .box{background:#fff;border-radius:10px;padding:12px;display:grid;grid-template-columns:960px 300px;gap:12px}
+  #cv{position:relative;width:960px;height:540px;background:#eee center/contain no-repeat;border:1px solid #999;overflow:hidden;user-select:none}
+  .ovx{position:absolute;box-sizing:border-box;display:flex;align-items:center;white-space:pre-wrap;line-height:1.2;overflow:hidden;cursor:move;outline:1px dashed rgba(0,0,0,.25)}
+  .ovx.sel{outline:2px solid #2b5fd9}
+  .ovx .rz{position:absolute;right:0;bottom:0;width:14px;height:14px;background:#2b5fd9;cursor:nwse-resize}
+  #props label{display:block;font-size:11px;color:#666;margin:6px 0 2px}
+  #props .two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 </style></head>
 <body>
 <header>
@@ -37,6 +45,12 @@
   <button onclick="job('blog',{wp:true,hatena:true,draft:true})">블로그 초안 생성</button>
   <button onclick="toggleLog()">로그</button>
 </header>
+<div id="ed"><div class="box">
+  <div><div id="cv" onmousedown="cvDown(event)"></div>
+    <div class="row"><button onclick="addOv('text')">＋텍스트</button><button onclick="addOv('box')">＋상자</button><button onclick="addOv('hl')">＋노란 강조</button><button onclick="addOv('arrow')">＋화살표</button>
+    <button class="d" onclick="delOv()">선택 삭제</button><span style="flex:1"></span><button onclick="edPreview()">미리보기</button><button class="p" onclick="edSave()">저장</button><button onclick="edClose()">닫기</button></div>
+    <small style="color:#666">드래그=이동, 오른쪽아래 파란점=크기, 더블클릭=텍스트 편집. 좌표는 1920×1080 기준(화면은 1/2 축소)</small></div>
+  <div id="props"></div></div></div>
 <main>
   <pre id="log" style="display:none"></pre>
   <div class="top">
@@ -90,11 +104,12 @@ function slideCard(sid,sl){const sp=sl.spec,k=sp.kind||"bullets",id=`${sid}_${sl
   else if(k==="bullets") f=F("title","title",sp.title)+F("items (1行1項目)","items",(sp.items||[]).join("\n"),1);
   else if(k==="table") f=F("title","title",sp.title)+F("header (,区切り)","header",(sp.header||[]).join(","))+F("rows (1行1列, ,区切り)","rows",(sp.rows||[]).map(r=>r.join(",")).join("\n"),1)+F("highlight 行,列 (0始まり)","highlight",(sp.highlight||[]).join(","))+F("callout (25文字, 改行は<br>)","callout",sp.callout||"");
   else if(k==="compare") f=F("title","title",sp.title)+F("左 note / label / verdict","left",[sp.left?.note,sp.left?.label,sp.left?.verdict].join(" / "))+F("右 note / label / verdict","right",[sp.right?.note,sp.right?.label,sp.right?.verdict].join(" / "));
+  else if(k==="free") f=F("title (空なら見出しなし)","title",sp.title||"")+`<small style="color:#666">자유 슬라이드: 내용은 🎨 배치 편집에서</small>`;
   else f=F("JSON","json",JSON.stringify(sp,null,1),1);
   return `<div class="sl" id="sl_${id}"><img src="${sl.img?sl.img+"?v="+S.video_mtime:""}" onclick="seek(${sl.start})" title="클릭=영상 이동">
-   <div class="m"><span class="time">${fmt(sl.start)} 〜 ${fmt(sl.end)}</span> · <select id="${id}_kind" onchange="changeKind('${sid}',${sl.idx},this.value)">${["title","bullets","table","compare","number","timeline","bar"].map(x=>`<option ${x===k?"selected":""}>${x}</option>`).join("")}</select>
+   <div class="m"><span class="time">${fmt(sl.start)} 〜 ${fmt(sl.end)}</span> · <select id="${id}_kind" onchange="changeKind('${sid}',${sl.idx},this.value)">${["title","bullets","table","compare","number","timeline","bar","free"].map(x=>`<option ${x===k?"selected":""}>${x}</option>`).join("")}</select>
    <div class="f">${f}${F("alt (ブログ用説明)","alt",sp.alt||"")}${F("weight (時間配分の比重, 既定1)","weight",sp.weight||1)}</div>
-   <div class="row"><button onclick="preview('${sid}',${sl.idx})">미리보기</button><button class="p" onclick="saveSlide('${sid}',${sl.idx})">저장</button>
+   <div class="row"><button onclick="preview('${sid}',${sl.idx})">미리보기</button><button class="p" onclick="saveSlide('${sid}',${sl.idx})">저장</button><button onclick="edOpen('${sid}',${sl.idx})">🎨 배치 편집${(sp.overlays||[]).length?` (${sp.overlays.length})`:""}</button>
    <button onclick="op('${sid}',${sl.idx},'add')">＋뒤에 추가</button><button onclick="op('${sid}',${sl.idx},'up')">↑</button><button onclick="op('${sid}',${sl.idx},'down')">↓</button><button class="d" onclick="if(confirm('삭제?'))op('${sid}',${sl.idx},'del')">삭제</button></div></div></div>`;}
 function collect(sid,idx){const id=`${sid}_${idx}`,g=i=>$(`#${id}_${i}`)?.value??"",k=$(`#${id}_kind`).value;let sp={kind:k};
   if(k==="title"||k==="number") Object.assign(sp,{big:g("big"),sub:g("sub")});
@@ -103,8 +118,10 @@ function collect(sid,idx){const id=`${sid}_${idx}`,g=i=>$(`#${id}_${i}`)?.value?
     Object.assign(sp,{title:g("title"),header:g("header").split(","),rows:g("rows").split("\n").filter(x=>x.trim()).map(r=>r.split(",")),highlight:hl.length===2?hl:null,callout:g("callout")||null});}
   else if(k==="compare"){const L=g("left").split("/").map(x=>x.trim()),R=g("right").split("/").map(x=>x.trim());
     Object.assign(sp,{title:g("title"),left:{note:L[0],label:L[1],verdict:L[2]},right:{note:R[0],label:R[1],verdict:R[2]}});}
+  else if(k==="free") Object.assign(sp,{title:g("title")});
   else {try{sp=JSON.parse(g("json"))}catch(e){alert("JSON 오류: "+e.message);throw e}}
-  sp.alt=g("alt"); sp.weight=parseFloat(g("weight"))||1; return sp;}
+  sp.alt=g("alt"); sp.weight=parseFloat(g("weight"))||1;
+  const cur=S.sections.find(s=>s.id===sid).slides[idx].spec; if(cur.overlays) sp.overlays=cur.overlays; return sp;}
 async function preview(sid,idx){const sp=collect(sid,idx);const r=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({spec:sp,section:sid})});
   $(`#sl_${sid}_${idx} img`).src=URL.createObjectURL(await r.blob());}
 async function saveSlide(sid,idx){await api("slide",{section:sid,idx,spec:collect(sid,idx)});await preview(sid,idx);toast("저장됨 (영상 반영은 전체 재렌더)");}
@@ -119,6 +136,51 @@ async function saveThumb(){await api("meta",{thumbnail:thumbSpec()});toast("썸�
 async function saveTitle(){await api("meta",{title:$("#ytitle").value});toast("제목 저장됨");}
 function toggleLog(){const l=$("#log");l.style.display=l.style.display==="none"?"":"none";}
 function toast(m){const d=document.createElement("div");d.textContent=m;d.style.cssText="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:8px;z-index:9";document.body.appendChild(d);setTimeout(()=>d.remove(),2500);}
+// ---------- 배치 편집기 ----------
+let ED={sid:null,idx:null,ovs:[],sel:-1,drag:null};
+const SC=0.5;
+async function edOpen(sid,idx){ED.sid=sid;ED.idx=idx;const sp=collect(sid,idx);ED.base=Object.assign({},sp,{overlays:[]});ED.ovs=JSON.parse(JSON.stringify(sp.overlays||[]));ED.sel=-1;
+  $("#ed").style.display="flex";
+  const r=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({spec:ED.base,section:sid})});
+  $("#cv").style.backgroundImage=`url(${URL.createObjectURL(await r.blob())})`;edDraw();}
+function edClose(){$("#ed").style.display="none";}
+function addOv(t){const base={x:200,y:300,w:700,h:140,size:56,bold:true,color:"#1e1e1e",bg:"transparent",border:"none",radius:0,align:"center",opacity:1,pad:10,text:""};
+  if(t==="text") Object.assign(base,{text:"ここに文字"});
+  if(t==="box") Object.assign(base,{text:"",bg:"#ffffff",border:"6px solid #d32f2f",radius:20});
+  if(t==="hl") Object.assign(base,{text:"",bg:"rgba(255,213,79,.55)",radius:10,h:110});
+  if(t==="arrow") Object.assign(base,{text:"➜",size:160,color:"#d32f2f",w:220,h:200});
+  ED.ovs.push(base);ED.sel=ED.ovs.length-1;edDraw();}
+function delOv(){if(ED.sel<0)return;ED.ovs.splice(ED.sel,1);ED.sel=-1;edDraw();}
+function edDraw(){const cv=$("#cv");cv.innerHTML=ED.ovs.map((o,i)=>`<div class="ovx ${i===ED.sel?"sel":""}" data-i="${i}" style="left:${o.x*SC}px;top:${o.y*SC}px;width:${o.w*SC}px;height:${o.h*SC}px;font-size:${o.size*SC}px;font-weight:${o.bold?900:500};color:${o.color};background:${o.bg};border:${(o.border||"none").replace(/(\d+)px/,(m,n)=>(n*SC)+"px")};border-radius:${o.radius*SC}px;justify-content:${{left:"flex-start",right:"flex-end"}[o.align]||"center"};text-align:${o.align};padding:${(o.pad||10)*SC}px;opacity:${o.opacity}">${esc(o.text)}<div class="rz" data-rz="1"></div></div>`).join("");
+  edProps();}
+function edProps(){const o=ED.ovs[ED.sel];const P=$("#props");if(!o){P.innerHTML="<small style='color:#666'>요소를 클릭하면 속성이 나옵니다</small>";return;}
+  const I=(l,k,type="text")=>`<label>${l}</label><input type="${type}" value="${esc(o[k])}" oninput="edSet('${k}',this.value)">`;
+  P.innerHTML=`<label>텍스트</label><textarea rows="3" oninput="edSet('text',this.value)">${esc(o.text)}</textarea>
+  <div class="two">${I("글자 크기(px)","size","number")}<div><label>굵게</label><input type="checkbox" ${o.bold?"checked":""} onchange="edSet('bold',this.checked)"></div></div>
+  <div class="two"><div><label>글자색</label><input type="color" value="${/^#/.test(o.color)?o.color:"#1e1e1e"}" oninput="edSet('color',this.value)"></div><div><label>정렬</label><select onchange="edSet('align',this.value)">${["left","center","right"].map(a=>`<option ${a===o.align?"selected":""}>${a}</option>`).join("")}</select></div></div>
+  <label>배경 (예: #fff, rgba(255,213,79,.5), transparent)</label><input value="${esc(o.bg)}" oninput="edSet('bg',this.value)">
+  <label>테두리 (예: 6px solid #d32f2f, none)</label><input value="${esc(o.border)}" oninput="edSet('border',this.value)">
+  <div class="two">${I("모서리 둥글기","radius","number")}${I("투명도 0~1","opacity","number")}</div>
+  <div class="two">${I("X","x","number")}${I("Y","y","number")}</div><div class="two">${I("W","w","number")}${I("H","h","number")}</div>
+  <div class="row"><button onclick="edQuick('red')">빨강 강조</button><button onclick="edQuick('callout')">노란 말풍선</button><button onclick="edQuick('white')">흰 글자+남색 상자</button></div>`;}
+function edSet(k,v){const o=ED.ovs[ED.sel];if(!o)return;o[k]=["size","radius","opacity","x","y","w","h"].includes(k)?parseFloat(v):v;const keep=document.activeElement;edDrawKeep();}
+function edDrawKeep(){const cv=$("#cv");const o=ED.ovs[ED.sel];const el=cv.querySelector(`[data-i="${ED.sel}"]`);if(!el){edDraw();return;}
+  el.style.cssText=`left:${o.x*SC}px;top:${o.y*SC}px;width:${o.w*SC}px;height:${o.h*SC}px;font-size:${o.size*SC}px;font-weight:${o.bold?900:500};color:${o.color};background:${o.bg};border:${(o.border||"none").replace(/(\d+)px/,(m,n)=>(n*SC)+"px")};border-radius:${o.radius*SC}px;justify-content:${{left:"flex-start",right:"flex-end"}[o.align]||"center"};text-align:${o.align};padding:${(o.pad||10)*SC}px;opacity:${o.opacity}`;
+  el.firstChild.nodeValue!==undefined&&(el.childNodes[0].nodeType===3?el.childNodes[0].nodeValue=o.text:el.insertBefore(document.createTextNode(o.text),el.firstChild));}
+function edQuick(t){const o=ED.ovs[ED.sel];if(!o)return;if(t==="red")Object.assign(o,{color:"#d32f2f",bold:true,bg:"transparent",border:"none"});
+  if(t==="callout")Object.assign(o,{bg:"#fff3cd",border:"4px solid #e6c15a",radius:40,color:"#1e1e1e",bold:true,pad:30});
+  if(t==="white")Object.assign(o,{bg:"#1a3a5c",color:"#ffffff",radius:14,bold:true,border:"none"});edDraw();}
+function cvDown(e){const el=e.target.closest(".ovx");if(!el){ED.sel=-1;edDraw();return;}
+  ED.sel=parseInt(el.dataset.i);const o=ED.ovs[ED.sel];const rz=!!e.target.dataset.rz;ED.drag={rz,sx:e.clientX,sy:e.clientY,ox:o.x,oy:o.y,ow:o.w,oh:o.h};edDraw();
+  const mv=ev=>{const dx=(ev.clientX-ED.drag.sx)/SC,dy=(ev.clientY-ED.drag.sy)/SC;if(ED.drag.rz){o.w=Math.max(60,Math.round(ED.drag.ow+dx));o.h=Math.max(40,Math.round(ED.drag.oh+dy));}else{o.x=Math.round(ED.drag.ox+dx);o.y=Math.round(ED.drag.oy+dy);}edDrawKeep();};
+  const up=()=>{document.removeEventListener("mousemove",mv);document.removeEventListener("mouseup",up);edProps();};
+  document.addEventListener("mousemove",mv);document.addEventListener("mouseup",up);}
+$("#cv").addEventListener("dblclick",e=>{const el=e.target.closest(".ovx");if(!el)return;const o=ED.ovs[parseInt(el.dataset.i)];const t=prompt("텍스트",o.text);if(t!==null){o.text=t;edDraw();}});
+document.addEventListener("keydown",e=>{if($("#ed").style.display==="flex"&&e.key==="Delete"&&document.activeElement.tagName!=="INPUT"&&document.activeElement.tagName!=="TEXTAREA")delOv();});
+async function edPreview(){const sp=Object.assign({},ED.base,{overlays:ED.ovs});const r=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({spec:sp,section:ED.sid})});
+  const w=window.open("");w.document.write(`<img src="${URL.createObjectURL(await r.blob())}" style="max-width:100%">`);}
+async function edSave(){const sl=S.sections.find(s=>s.id===ED.sid).slides[ED.idx];sl.spec.overlays=ED.ovs;const sp=Object.assign({},ED.base,{overlays:ED.ovs});
+  await api("slide",{section:ED.sid,idx:ED.idx,spec:sp});edClose();await load();await preview(ED.sid,ED.idx);toast("배치 저장됨 (영상 반영은 전체 재렌더)");}
 let timer=null;function poll(){clearInterval(timer);timer=setInterval(async()=>{await load();if(!S.running){clearInterval(timer);toast("작업 완료");}},4000);}
 load();
 </script></body></html>

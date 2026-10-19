@@ -51,6 +51,18 @@ def svg_bar(sl):
         out.append(f"<text x='{x+bw/2}' y='{H-40}' font-size='40' font-weight='700' text-anchor='middle'>{esc(lab)}</text>")
     out.append("</svg>"); return "".join(out)
 
+def overlays_html(ovs):
+    """패널에서 배치한 자유 요소(텍스트/도형/화살표). 좌표는 1920x1080 기준 px."""
+    out = []
+    for o in ovs:
+        st = (f"left:{o.get('x',100)}px;top:{o.get('y',100)}px;width:{o.get('w',400)}px;height:{o.get('h',120)}px;"
+              f"font-size:{o.get('size',48)}px;font-weight:{900 if o.get('bold', True) else 500};color:{o.get('color','#1e1e1e')};"
+              f"background:{o.get('bg','transparent')};border:{o.get('border','none')};border-radius:{o.get('radius',0)}px;"
+              f"justify-content:{ {'left':'flex-start','right':'flex-end'}.get(o.get('align','center'),'center') };text-align:{o.get('align','center')};"
+              f"padding:{o.get('pad',10)}px;opacity:{o.get('opacity',1)};transform:rotate({o.get('rot',0)}deg);z-index:{o.get('z',5)}")
+        out.append(f"<div class='ov' style=\"{st}\">{esc(o.get('text',''))}</div>")
+    return "".join(out)
+
 def slide_html(sl, section):
     k = sl.get("kind", "bullets"); hdr = f"<div class='hdr'>{esc(sl.get('title'))}</div>" if sl.get("title") else ""
     if k in ("title", "number"):
@@ -84,9 +96,12 @@ def slide_html(sl, section):
         body = f"{hdr}{svg_bar(sl)}"
     else:
         body = f"{hdr}<ul>" + "".join(f"<li>{esc(i)}</li>" for i in sl.get("items", [])) + "</ul>"
+    if k == "free":
+        body = hdr
     c = sl.get("character")
     if c and k not in ("compare", "timeline"):
         body += chara(c["id"], c.get("mood", "neutral")).replace("<img", "<img class='character'")
+    body += overlays_html(sl.get("overlays") or [])
     return TPL.replace("{{BODY}}", body).replace("{{CHANNEL}}", "").replace("{{SECTION}}", "")
 
 THUMB_TPL = (ROOT / "templates" / "thumb.html").read_text(encoding="utf-8")
