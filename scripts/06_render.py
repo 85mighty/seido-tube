@@ -117,13 +117,15 @@ if __name__ == "__main__":
         b = p.chromium.launch(); page = b.new_page(viewport={"width": 1920, "height": 1080})
         for s in js["sections"]:
             t = timing[s["id"]]; slides = s.get("slides") or [{"kind": "bullets", "title": s["id"], "items": []}]
-            per = t["dur"] / len(slides)
+            # 슬라이드별 weight(기본 1)에 비례해 섹션 음성 길이를 배분
+            ws = [float(sl.get("weight") or 1) for sl in slides]; cur = t["start"]
             for j, sl in enumerate(slides):
+                per = t["dur"] * ws[j] / sum(ws)
                 page.set_content(slide_html(sl, s["id"])); png = frames / f"{n:03}.png"; page.screenshot(path=str(png))
                 name = f"{n:03}_{s['id']}_{sl.get('kind','bullets')}.png"; shutil.copy(png, assets / name)
                 manifest.append(dict(file=name, section=s["id"], kind=sl.get("kind"), title=sl.get("title") or sl.get("big"),
-                                     alt=sl.get("alt", ""), start=round(t["start"] + per * j, 1), spec=sl))
-                concat += [f"file '{png.resolve()}'", f"duration {per:.3f}"]; n += 1
+                                     alt=sl.get("alt", ""), start=round(cur, 1), end=round(cur + per, 1), spec=sl))
+                concat += [f"file '{png.resolve()}'", f"duration {per:.3f}"]; n += 1; cur += per
             sents = [x for x in s["narration"].replace("。", "。\n").split("\n") if x.strip()]; st = t["start"]
             for x in sents:
                 d = t["dur"] * len(x) / max(1, t["chars"])

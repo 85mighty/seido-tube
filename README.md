@@ -21,6 +21,11 @@
 하루 운영: `./run_pipeline.sh` 1회 → Telegram 미리보기 확인 → `--publish` → `08_blog_post.py --wp --hatena`
 (수동 입력은 승인 1번 = 목표 10〜15분 이내)
 
+## 검수 패널 — http://66.245.217.115:8085
+
+영상 재생 · 섹션/슬라이드별 시작〜끝 초 · 대본 · 음성이 한 화면. 슬라이드 글자 수정 → 미리보기(즉시) → 저장, 뒤에 추가(분할)/삭제/순서/weight(시간 비중), 대본 수정 → 그 섹션 음성만 재생성, 전체 재렌더, YouTube 업로드/공개예약, 블로그 초안까지 버튼.
+`pm2 start "python3 /root/seido-tube/panel/app.py" --name seido-panel` (bootstrap이 자동 등록). `.env`에 `PANEL_USER`/`PANEL_PASS` 넣으면 Basic 인증.
+
 ## VPS 셋업 (1회) — 한 줄
 
 ```bash
@@ -58,6 +63,8 @@ python3 scripts/03_topic_queue.py --month 11
 | compare | 2분할: 좌 파랑「65歳 超大損」/ 우 빨강「？歳 最強」+ 캐릭터 표정 |
 | timeline | 좌측 캐릭터 행 × 기간 컬럼 × 색 막대 (在職老齢年金 기준액 변천형) |
 | bar / number / bullets / title | 금액 강조, 요점, 섹션 타이틀 |
+
+각 슬라이드 `weight`(기본 1)로 섹션 음성 시간 배분 비중 조절. 섹션 안의 슬라이드는 weight 비례로 시간이 나뉨.
 
 캐릭터는 `assets/library/characters/<id>_<mood>.png` 에 한 번 생성 후 영구 재사용 (채널 통일감 + 비용 0).
 

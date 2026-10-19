@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>{{SLUG}} — 検収</title>
+<style>
+  body{font-family:-apple-system,"Noto Sans CJK JP","Noto Sans KR",sans-serif;margin:0;background:#f4f4f6;color:#222}
+  header{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;padding:10px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;z-index:5}
+  header h1{font-size:16px;margin:0;flex:1;min-width:300px}
+  button{border:1px solid #bbb;background:#fff;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px}
+  button.p{background:#2b5fd9;color:#fff;border-color:#2b5fd9} button.d{background:#d32f2f;color:#fff;border-color:#d32f2f}
+  button:disabled{opacity:.4}
+  main{max-width:1500px;margin:0 auto;padding:20px}
+  .top{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px}
+  video{width:100%;background:#000;border-radius:8px}
+  .card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:12px}
+  .sec{background:#fff;border:1px solid #ddd;border-radius:8px;margin-bottom:18px;overflow:hidden}
+  .sec>.h{display:flex;gap:12px;align-items:center;padding:10px 14px;background:#1a3a5c;color:#fff;flex-wrap:wrap}
+  .sec>.h b{font-size:15px} .sec>.h .t{opacity:.85;font-size:13px}
+  .sec>.body{display:grid;grid-template-columns:380px 1fr;gap:14px;padding:14px}
+  textarea{width:100%;box-sizing:border-box;font:13px/1.5 inherit;border:1px solid #ccc;border-radius:6px;padding:8px}
+  input,select{font:13px inherit;border:1px solid #ccc;border-radius:6px;padding:6px;width:100%;box-sizing:border-box}
+  .slides{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+  .sl{border:1px solid #ddd;border-radius:8px;overflow:hidden;background:#fafafa}
+  .sl img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:#eee;cursor:pointer}
+  .sl .m{padding:8px;font-size:12px}
+  .sl .time{font-weight:700;color:#2b5fd9} .sl .f label{display:block;margin:6px 0 2px;color:#666;font-size:11px}
+  .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  pre{background:#111;color:#9f9;font-size:11px;padding:10px;max-height:240px;overflow:auto;border-radius:6px;white-space:pre-wrap}
+  .badge{background:#ffd54f;border-radius:10px;padding:2px 8px;font-size:12px}
+  .thumb img{width:100%;border-radius:6px;cursor:pointer}
+</style></head>
+<body>
+<header>
+  <h1 id="title"></h1>
+  <span id="status" class="badge" style="display:none">작업 중…</span>
+  <button onclick="job('render')" class="p">전체 재렌더 (음성 없는 섹션만 생성 + 영상)</button>
+  <button onclick="job('upload')">YouTube 업로드(비공개)</button>
+  <button onclick="job('upload',{publish:true})">금 19:00 공개예약</button>
+  <button onclick="job('blog',{wp:true,hatena:true,draft:true})">블로그 초안 생성</button>
+  <button onclick="toggleLog()">로그</button>
+</header>
+<main>
+  <pre id="log" style="display:none"></pre>
+  <div class="top">
+    <div><video id="video" controls preload="metadata"></video><div id="novideo" style="color:#888;padding:10px">final.mp4 없음 — 재렌더 필요</div></div>
+    <div class="card thumb">
+      <b>썸네일</b> <small>(클릭=미리보기 갱신)</small>
+      <img id="thumb" onclick="previewThumb()">
+      <div class="f" id="thumbForm"></div>
+      <div class="row"><button onclick="previewThumb()">미리보기</button><button class="p" onclick="saveThumb()">저장</button></div>
+      <label style="font-size:11px;color:#666;display:block;margin-top:8px">제목</label><input id="ytitle">
+      <div class="row"><button class="p" onclick="saveTitle()">제목 저장</button></div>
+    </div>
+  </div>
+  <div id="sections"></div>
+</main>
+<script>
+const SLUG="{{SLUG}}"; let S=null;
+const $=s=>document.querySelector(s); const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const api=(p,b)=>fetch(`/api/${SLUG}/${p}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(b||{})}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
+async function load(){S=await (await fetch(`/api/${SLUG}/state`)).json();render();}
+function render(){
+  $("#title").textContent=S.title; $("#ytitle").value=S.title;
+  $("#status").style.display=S.running?"":"none"; $("#log").textContent=S.log;
+  const v=$("#video"); if(S.video){const src=S.video+"?v="+S.video_mtime; if(v.dataset.src!==src){v.src=src;v.dataset.src=src;} v.style.display="";$("#novideo").style.display="none";} else {v.style.display="none";$("#novideo").style.display="";}
+  if(S.thumbnail) $("#thumb").src=S.thumbnail+"?v="+S.video_mtime;
+  if(!$("#thumbForm").children.length){ const th=S.thumb||{};
+    $("#thumbForm").innerHTML=`<label>リボン</label><input id="th_ribbon"><label>タイトル(7文字)</label><input id="th_title">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><div><label>左 note</label><input id="th_lnote"><label>左 label</label><input id="th_llab"><label>左 verdict(4文字)</label><input id="th_lver"></div>
+    <div><label>右 note</label><input id="th_rnote"><label>右 label</label><input id="th_rlab"><label>右 verdict</label><input id="th_rver"></div></div>`;
+    fetch(`/files/${SLUG}/script.json`).then(r=>r.json()).then(js=>{const t=js.thumbnail||{};$("#th_ribbon").value=t.ribbon||"知らなきゃ損！";$("#th_title").value=t.title||"";
+      $("#th_lnote").value=t.left?.note||"";$("#th_llab").value=t.left?.label||"";$("#th_lver").value=t.left?.verdict||"";$("#th_rnote").value=t.right?.note||"";$("#th_rlab").value=t.right?.label||"";$("#th_rver").value=t.right?.verdict||"";});
+  }
+  $("#sections").innerHTML=S.sections.map(sec=>`
+  <div class="sec" id="sec_${sec.id}"><div class="h"><b>${sec.id}</b><span class="t">${fmt(sec.start)} 〜 ${fmt((sec.start||0)+(sec.dur||0))} (${(sec.dur||0).toFixed(1)}s · ${sec.chars}字)</span>
+    ${sec.audio?`<audio controls preload="none" src="${sec.audio}?v=${S.video_mtime}" style="height:30px"></audio>`:`<span class="badge">음성 없음</span>`}
+    <span style="flex:1"></span><button onclick="seek(${sec.start||0})">▶ 영상 여기로</button></div>
+   <div class="body"><div>
+      <textarea rows="14" id="nar_${sec.id}">${esc(sec.narration)}</textarea>
+      <div class="row"><button class="p" onclick="saveNar('${sec.id}')">대본 저장</button><button onclick="retts('${sec.id}')">이 섹션 음성 재생성</button></div>
+      <small style="color:#666">대본을 고치면 음성 재생성 → 전체 재렌더 순서</small></div>
+    <div class="slides">${sec.slides.map(sl=>slideCard(sec.id,sl)).join("")}</div></div></div>`).join("");
+  // 아직 렌더되지 않은 슬라이드(추가 직후)는 미리보기로 즉시 채움
+  S.sections.forEach(sec=>sec.slides.forEach(sl=>{if(!sl.img)preview(sec.id,sl.idx);}));
+}
+function fmt(t){t=Math.round(t||0);return `${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`}
+function seek(t){const v=$("#video");v.currentTime=t;v.play();window.scrollTo({top:0,behavior:"smooth"})}
+function slideCard(sid,sl){const sp=sl.spec,k=sp.kind||"bullets",id=`${sid}_${sl.idx}`;
+  const F=(l,i,v,ta)=>`<label>${l}</label>`+(ta?`<textarea rows="3" id="${id}_${i}">${esc(v)}</textarea>`:`<input id="${id}_${i}" value="${esc(v)}">`);
+  let f="";
+  if(k==="title"||k==="number") f=F("big","big",sp.big)+F("sub","sub",sp.sub);
+  else if(k==="bullets") f=F("title","title",sp.title)+F("items (1行1項目)","items",(sp.items||[]).join("\n"),1);
+  else if(k==="table") f=F("title","title",sp.title)+F("header (,区切り)","header",(sp.header||[]).join(","))+F("rows (1行1列, ,区切り)","rows",(sp.rows||[]).map(r=>r.join(",")).join("\n"),1)+F("highlight 行,列 (0始まり)","highlight",(sp.highlight||[]).join(","))+F("callout (25文字, 改行は<br>)","callout",sp.callout||"");
+  else if(k==="compare") f=F("title","title",sp.title)+F("左 note / label / verdict","left",[sp.left?.note,sp.left?.label,sp.left?.verdict].join(" / "))+F("右 note / label / verdict","right",[sp.right?.note,sp.right?.label,sp.right?.verdict].join(" / "));
+  else f=F("JSON","json",JSON.stringify(sp,null,1),1);
+  return `<div class="sl" id="sl_${id}"><img src="${sl.img?sl.img+"?v="+S.video_mtime:""}" onclick="seek(${sl.start})" title="클릭=영상 이동">
+   <div class="m"><span class="time">${fmt(sl.start)} 〜 ${fmt(sl.end)}</span> · <select id="${id}_kind" onchange="changeKind('${sid}',${sl.idx},this.value)">${["title","bullets","table","compare","number","timeline","bar"].map(x=>`<option ${x===k?"selected":""}>${x}</option>`).join("")}</select>
+   <div class="f">${f}${F("alt (ブログ用説明)","alt",sp.alt||"")}${F("weight (時間配分の比重, 既定1)","weight",sp.weight||1)}</div>
+   <div class="row"><button onclick="preview('${sid}',${sl.idx})">미리보기</button><button class="p" onclick="saveSlide('${sid}',${sl.idx})">저장</button>
+   <button onclick="op('${sid}',${sl.idx},'add')">＋뒤에 추가</button><button onclick="op('${sid}',${sl.idx},'up')">↑</button><button onclick="op('${sid}',${sl.idx},'down')">↓</button><button class="d" onclick="if(confirm('삭제?'))op('${sid}',${sl.idx},'del')">삭제</button></div></div></div>`;}
+function collect(sid,idx){const id=`${sid}_${idx}`,g=i=>$(`#${id}_${i}`)?.value??"",k=$(`#${id}_kind`).value;let sp={kind:k};
+  if(k==="title"||k==="number") Object.assign(sp,{big:g("big"),sub:g("sub")});
+  else if(k==="bullets") Object.assign(sp,{title:g("title"),items:g("items").split("\n").filter(x=>x.trim())});
+  else if(k==="table"){const hl=g("highlight").split(",").map(x=>parseInt(x)).filter(x=>!isNaN(x));
+    Object.assign(sp,{title:g("title"),header:g("header").split(","),rows:g("rows").split("\n").filter(x=>x.trim()).map(r=>r.split(",")),highlight:hl.length===2?hl:null,callout:g("callout")||null});}
+  else if(k==="compare"){const L=g("left").split("/").map(x=>x.trim()),R=g("right").split("/").map(x=>x.trim());
+    Object.assign(sp,{title:g("title"),left:{note:L[0],label:L[1],verdict:L[2]},right:{note:R[0],label:R[1],verdict:R[2]}});}
+  else {try{sp=JSON.parse(g("json"))}catch(e){alert("JSON 오류: "+e.message);throw e}}
+  sp.alt=g("alt"); sp.weight=parseFloat(g("weight"))||1; return sp;}
+async function preview(sid,idx){const sp=collect(sid,idx);const r=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({spec:sp,section:sid})});
+  $(`#sl_${sid}_${idx} img`).src=URL.createObjectURL(await r.blob());}
+async function saveSlide(sid,idx){await api("slide",{section:sid,idx,spec:collect(sid,idx)});await preview(sid,idx);toast("저장됨 (영상 반영은 전체 재렌더)");}
+async function op(sid,idx,o){await api("slide",{section:sid,idx,op:o});await load();}
+function changeKind(sid,idx,k){const sl=S.sections.find(s=>s.id===sid).slides[idx];sl.spec={kind:k,alt:sl.spec.alt,weight:sl.spec.weight};render();}
+async function saveNar(sid){const r=await api("narration",{section:sid,narration:$(`#nar_${sid}`).value});toast(`대본 저장됨 (${r.chars}字). 음성 재생성 필요`);}
+async function retts(sid){if(!confirm("이 섹션 음성을 다시 만듭니다 (ElevenLabs 크레딧 사용)"))return;await api("tts",{sections:[sid]});poll();}
+async function job(name,body){if(!confirm(name+" 실행?"))return;try{await api(name,body||{});poll();}catch(e){alert("실행 실패: "+e.message)}}
+async function previewThumb(){const r=await fetch(`/api/${SLUG}/preview`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({thumbnail:thumbSpec()})});$("#thumb").src=URL.createObjectURL(await r.blob());}
+function thumbSpec(){const g=i=>$("#th_"+i).value;return {ribbon:g("ribbon"),title:g("title"),left:{note:g("lnote"),label:g("llab"),verdict:g("lver")},right:{note:g("rnote"),label:g("rlab"),verdict:g("rver")}}}
+async function saveThumb(){await api("meta",{thumbnail:thumbSpec()});toast("썸네일 저장됨 (재렌더 시 반영)");}
+async function saveTitle(){await api("meta",{title:$("#ytitle").value});toast("제목 저장됨");}
+function toggleLog(){const l=$("#log");l.style.display=l.style.display==="none"?"":"none";}
+function toast(m){const d=document.createElement("div");d.textContent=m;d.style.cssText="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:8px;z-index:9";document.body.appendChild(d);setTimeout(()=>d.remove(),2500);}
+let timer=null;function poll(){clearInterval(timer);timer=setInterval(async()=>{await load();if(!S.running){clearInterval(timer);toast("작업 완료");}},4000);}
+load();
+</script></body></html>

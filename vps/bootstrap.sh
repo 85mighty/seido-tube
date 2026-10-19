@@ -6,8 +6,8 @@ cd /root
 [ -d seido-tube ] || git clone https://github.com/85mighty/seido-tube.git
 cd seido-tube && git pull --ff-only
 
-pip install -q --break-system-packages -U yt-dlp pyyaml anthropic playwright pillow google-api-python-client google-auth-oauthlib 2>/dev/null \
-  || pip install -q -U yt-dlp pyyaml anthropic playwright pillow google-api-python-client google-auth-oauthlib
+pip install -q --break-system-packages -U yt-dlp pyyaml anthropic playwright pillow google-api-python-client google-auth-oauthlib fastapi uvicorn 2>/dev/null \
+  || pip install -q -U yt-dlp pyyaml anthropic playwright pillow google-api-python-client google-auth-oauthlib fastapi uvicorn
 python3 -m playwright install chromium >/dev/null 2>&1 || true
 python3 -m playwright install-deps >/dev/null 2>&1 || true
 command -v ffmpeg >/dev/null || apt-get install -y -qq ffmpeg
@@ -22,6 +22,11 @@ if [ -d /root/bgutil-pot/server ] && ! curl -s --max-time 3 http://127.0.0.1:441
   sleep 2
 fi
 curl -s --max-time 3 http://127.0.0.1:4416/ping >/dev/null && echo "bgutil PO token server: up" || echo "bgutil PO token server: not running (자막은 config/cookies.txt 필요)"
+
+# 검수 패널 (:8085) — pm2 상주
+pm2 describe seido-panel >/dev/null 2>&1 && pm2 restart seido-panel >/dev/null || pm2 start "python3 /root/seido-tube/panel/app.py" --name seido-panel >/dev/null
+pm2 save >/dev/null 2>&1 || true
+echo "panel: http://$(curl -s --max-time 3 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}'):8085"
 
 bash vps/benchmark_sync.sh
 echo "bootstrap done. 다음: nano /root/seido-tube/.env (키 입력) → ./run_pipeline.sh"
