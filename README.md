@@ -27,12 +27,12 @@
 curl -fsSL https://raw.githubusercontent.com/85mighty/seido-tube/main/vps/bootstrap.sh | bash
 ```
 클론 → 의존성 → 벤치마크 161편 수집(현재 조회수·길이·자막 30편) → 구조분석 → 랭킹 재계산 → `.env`의 CHARS_PER_MIN 자동 반영 → 결과를 GitHub에 푸시.
-이후 매주 토요일 새벽 자동 갱신:
+이후 매주 토요일 새벽(JST) 자동 갱신 (VPS는 UTC):
 ```bash
-(crontab -l; echo "30 4 * * 6 /root/seido-tube/vps/benchmark_sync.sh >> /root/seido-tube/data/sync.log 2>&1") | crontab -
+(crontab -l; echo "30 19 * * 5 /root/seido-tube/vps/benchmark_sync.sh >> /root/seido-tube/data/sync.log 2>&1") | crontab -
 ```
 푸시가 거절되면 VPS의 GitHub 인증 방식에 맞춰 `git remote set-url origin git@github.com:85mighty/seido-tube.git`.
-(클라우드 작업공간은 YouTube가 차단되어 수집은 반드시 VPS에서. VPS의 bgutil-pot 가 있으면 봇 차단 회피에 자동 사용)
+**봇 차단 대응**: 채널 목록(조회수·길이)은 차단 없이 수집됨. 업로드일·좋아요는 `.env`에 `YOUTUBE_API_KEY`(Cloud Console → API 키, YouTube Data API v3)를 넣으면 API로 가져옴(차단 무관). 자막은 bgutil PO token 서버(:4416, bootstrap이 pm2로 띄움) 또는 Chrome에서 내보낸 `config/cookies.txt`(확장 "Get cookies.txt LOCALLY", youtube.com 로그인 상태) 중 하나가 필요.
 
 ### 수동 셋업
 

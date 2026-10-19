@@ -6,7 +6,7 @@ out: analysis/structure.md
     CTA 등장 타이밍(チャンネル登録/概要欄/書籍), 숫자 밀도(万円/歳 등장 횟수)
   - 전체: 중앙값 요약 → 대본 템플릿 파라미터로 사용
 """
-import json, re, statistics
+import json, re, statistics, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -47,6 +47,8 @@ def analyze(vid, meta):
 if __name__ == "__main__":
     metas = {m["id"]: m for m in json.loads(META.read_text(encoding="utf-8"))}
     res = [r for vid in [p.stem.split(".")[0] for p in SUBS.glob("*.vtt")] if (r := analyze(vid, metas.get(vid, {})))]
+    if not res:
+        sys.exit("no subtitles in data/subs → skip (bgutil PO token server or config/cookies.txt needed)")
     res.sort(key=lambda r: r["views"] or 0, reverse=True)
     L = ["# 벤치마크 영상 구성 분석\n", f"분석 {len(res)}본\n",
          f"- 길이 중앙값: {statistics.median([r['minutes'] for r in res])}분",
