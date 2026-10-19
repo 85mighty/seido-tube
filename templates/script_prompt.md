@@ -23,13 +23,13 @@
   - "bullets":  {"title":"...","items":["..",".."]}  （「〇選」は禁止、3〜4項目）
   - "table":    {"title":"...","header":[..],"rows":[[..]..],"highlight":[row,col] または null,
                  "callout":"61歳から70歳までに合計16万4,000円増える" または null}  ← 表の上に黄色の吹き出し、数字は赤
-  - "compare":  {"title":"年金受給の年齢","left":{"label":"65歳","verdict":"超大損","mood":"sad"},
-                 "right":{"label":"〇歳","verdict":"最強","mood":"happy"}}  ← 左=青/困り顔、右=赤/笑顔の2分割
-  - "timeline": {"title":"...","rows":[{"label":"60〜64歳","mood":"neutral"},{"label":"65歳以上","mood":"neutral"}],
+  - "compare":  {"title":"年金受給の年齢","left":{"label":"65歳","verdict":"超大損","note":"一言"},
+                 "right":{"label":"〇歳","verdict":"最強","note":"一言"}}  ← 左=青、右=赤の2分割
+  - "timeline": {"title":"...","rows":[{"label":"60〜64歳"},{"label":"65歳以上"}],
                  "periods":["2022年3月","4月","2023年4月"],"values":[["28万円","47万円",null],["47万円","47万円",null]]}
   - "bar":      {"title":"...","labels":["..",".."],"values":[数値..],"unit":"万円","highlight":index}
   - "number":   {"big":"15万円","sub":"週10時間働くだけで"}
-- 人物イラストが必要なスライドには "character": {"id":"man60"|"woman60"|"couple"|"nurse_host","mood":"sad"|"happy"|"neutral"|"surprised"} を付ける（既存ライブラリから選択。新規生成は "character_prompt" に英語で指示）
+- 人物イラストは使わない（文字・数字・表・図だけで伝える。文字は大きく、1スライドの情報量は少なく）
 - 各スライドに "alt":（ブログ転載時の画像説明、日本語1文）を必ず付ける
 
 # タイトル

@@ -85,13 +85,27 @@ for r in rows:
         d["current"] = r["views"]
     else:
         d["date"] = r["date"]
-videos = sorted(by_title.values(), key=lambda v: v["date"], reverse=True)
+# VPS 수집본(data/channel_videos.json)이 있으면 현재 조회수·길이·좋아요를 전 영상에 채움
+import json as _json
+_cv = ROOT / "data" / "channel_videos.json"
+if _cv.exists():
+    for m in _json.loads(_cv.read_text(encoding="utf-8")):
+        d = by_title.setdefault(m["title"], dict(title=m["title"], date=None, early=None, current=None))
+        d["current"] = m.get("view_count"); d["duration_min"] = round((m.get("duration") or 0) / 60, 1)
+        d["likes"] = m.get("like_count"); d["id"] = m.get("id")
+        if m.get("upload_date"):
+            d["date"] = f"{m['upload_date'][:4]}-{m['upload_date'][4:6]}-{m['upload_date'][6:]}"
+    for d in by_title.values():
+        if d.get("date") and d.get("current"):
+            days = max(1, (__import__("datetime").date.today() - __import__("datetime").date.fromisoformat(d["date"])).days)
+            d["views_per_day"] = int(d["current"] / days)
+videos = sorted([v for v in by_title.values() if v.get("date")], key=lambda v: v["date"], reverse=True)
 for v in videos:
     v["topic"] = topic_of(v["title"])
     v["patterns"] = ";".join(k for k, p in PATTERNS.items() if re.search(p, v["title"]))
 
 with open(OUT / "videos.csv", "w", newline="", encoding="utf-8") as f:
-    w = csv.DictWriter(f, fieldnames=["date", "topic", "early", "current", "patterns", "title"])
+    w = csv.DictWriter(f, fieldnames=["date", "topic", "early", "current", "views_per_day", "duration_min", "likes", "id", "patterns", "title"])
     w.writeheader()
     for v in videos:
         w.writerow({k: v.get(k) for k in w.fieldnames})
@@ -99,7 +113,9 @@ with open(OUT / "videos.csv", "w", newline="", encoding="utf-8") as f:
 # ---- topic ranking ----
 agg = defaultdict(list)
 for v in videos:
-    if v["early"]:
+    if _cv.exists() and not v.get("early") and v.get("current"):
+        v["early"] = v["current"]   # VPS 수집 모드: yutura 스냅샷이 없는 영상은 현재 조회수로 대체
+    if v.get("early"):
         agg[v["topic"]].append(v)
 recent_cut = "2025-10-01"
 trank = []
@@ -107,12 +123,15 @@ for t, vs in agg.items():
     early = [v["early"] for v in vs]
     recent = [v["early"] for v in vs if v["date"] >= recent_cut]
     hits = [v for v in vs if v["early"] >= 150000]
-    mega = [v for v in by_title.values() if v["topic"] == t and v["current"]]
+    mega = [v for v in by_title.values() if v.get("topic") == t and v.get("current") and v["current"] >= 1_000_000]
+    cur = [v["current"] for v in vs if v.get("current")]
     trank.append(dict(
         topic=t, n=len(vs), median_early=int(statistics.median(early)),
         mean_early=int(statistics.mean(early)), max_early=max(early),
         n_recent=len(recent), median_recent=int(statistics.median(recent)) if recent else 0,
         hits_15万plus=len(hits), top10_alltime=len(mega),
+        median_current=int(statistics.median(cur)) if cur else 0,
+        vpd_median=int(statistics.median([v["views_per_day"] for v in vs if v.get("views_per_day")])) if any(v.get("views_per_day") for v in vs) else 0,
         score=int(statistics.median(early) * (1 + 0.3 * len(hits)) * (1 + 0.5 * len(mega))),
     ))
 trank.sort(key=lambda r: r["score"], reverse=True)
@@ -141,20 +160,20 @@ L.append(f"# 節約看護師りょう ベンチマーク — タイトル/テー
 L.append(f"- 分析対象: {len(videos)}本 (2024-06 〜 2026-10), 早期再生数あり {len(all_early)}本, 全体中央値(早期) {int(base):,}")
 L.append(f"- 'early' = 投稿後1〜2週の再生数スナップショット(yutura), 'current' = 2026-10-19 時点累計(上位10本のみ)\n")
 L.append("## テーマ別ランキング (score = 早期中央値 × ヒット補正 × 殿堂入り補正)\n")
-L.append("| # | テーマ | 本数 | 早期中央値 | 早期最大 | 直近12ヶ月本数/中央値 | 15万+ | 全期間TOP10 | score |")
-L.append("|---|---|---|---|---|---|---|---|---|")
+L.append("| # | テーマ | 本数 | 早期中央値 | 早期最大 | 直近12ヶ月本数/中央値 | 15万+ | 100万+ | 現在中央値 | 日次中央値 | score |")
+L.append("|---|---|---|---|---|---|---|---|---|---|---|")
 for i, r in enumerate(trank, 1):
-    L.append(f"| {i} | {r['topic']} | {r['n']} | {r['median_early']:,} | {r['max_early']:,} | {r['n_recent']} / {r['median_recent']:,} | {r['hits_15万plus']} | {r['top10_alltime']} | {r['score']:,} |")
+    L.append(f"| {i} | {r['topic']} | {r['n']} | {r['median_early']:,} | {r['max_early']:,} | {r['n_recent']} / {r['median_recent']:,} | {r['hits_15万plus']} | {r['top10_alltime']} | {r['median_current']:,} | {r['vpd_median']:,} | {r['score']:,} |")
 L.append("\n## タイトル型の効き目 (早期中央値 あり/なし)\n")
 L.append("| 型 | 使用本数 | 比率 | 中央値(あり) | 中央値(なし) | lift |")
 L.append("|---|---|---|---|---|---|")
 for r in pstats:
     L.append(f"| {r['pattern']} | {r['n']} | {r['share']} | {r['median_with']:,} | {r['median_without']:,} | {r['lift']} |")
 L.append("\n## 早期再生数 TOP15\n")
-for v in sorted([v for v in videos if v["early"]], key=lambda v: v["early"], reverse=True)[:15]:
+for v in sorted([v for v in videos if v.get("early")], key=lambda v: v["early"], reverse=True)[:15]:
     L.append(f"- {v['early']:>9,} | {v['date']} | {v['topic']} | {v['title']}")
-L.append("\n## 全期間 累計TOP10 (2026-10-19)\n")
-for v in sorted([v for v in videos if v["current"]], key=lambda v: v["current"], reverse=True):
+L.append("\n## 累計再生数 TOP20 (現在)\n")
+for v in sorted([v for v in videos if v.get("current")], key=lambda v: v["current"], reverse=True)[:20]:
     L.append(f"- {v['current']:>10,} | {v['date']} | {v['topic']} | {v['title']}")
 # cadence
 dates = sorted(v["date"] for v in videos if v["date"] >= "2025-01-01")

@@ -12,7 +12,7 @@ echo "$OUT"
 SLUG=$(echo "$OUT" | head -1)
 WD="work/$SLUG"
 
-python3 scripts/06a_images.py "$WD"
+# python3 scripts/06a_images.py "$WD"   # 캐릭터 일러스트는 보류 (필요 시 주석 해제)
 python3 scripts/05_tts.py "$WD"
 python3 scripts/06_render.py "$WD"
 python3 scripts/07_upload.py "$WD"

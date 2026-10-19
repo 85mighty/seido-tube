@@ -66,8 +66,8 @@ def slide_html(sl, section):
             body += f"<div class='callout'>{co}</div>"
     elif k == "compare":
         l, r = sl.get("left", {}), sl.get("right", {})
-        body = (f"{hdr}<div class='compare'><div class='l'>{chara('couple', l.get('mood','sad'))}<div class='lab'>{esc(l.get('label'))}</div><div class='ver'>{esc(l.get('verdict'))}</div></div>"
-                f"<div class='r'>{chara('couple', r.get('mood','happy'))}<div class='lab'>{esc(r.get('label'))}</div><div class='ver'>{esc(r.get('verdict'))}</div></div></div>")
+        body = (f"{hdr}<div class='compare'><div class='l'><div class='note'>{esc(l.get('note'))}</div><div class='lab'>{esc(l.get('label'))}</div><div class='ver'>{esc(l.get('verdict'))}</div></div>"
+                f"<div class='r'><div class='note'>{esc(r.get('note'))}</div><div class='lab'>{esc(r.get('label'))}</div><div class='ver'>{esc(r.get('verdict'))}</div></div></div>")
     elif k == "timeline":
         chars = "".join(f"<div>{chara(r.get('character','man60'), r.get('mood','neutral'))}<span>{esc(r.get('label'))}</span></div>" for r in sl.get("rows", []))
         body = f"{hdr}<div class='timeline'><div class='chars'>{chars}</div>{svg_timeline(sl)}</div>"
@@ -84,8 +84,8 @@ def thumb_html(th):
     l, r = th.get("left", {}), th.get("right", {})
     body = (f"<div class='thumb'><div class='ribbon'>{esc(th.get('ribbon','知らなきゃ損！'))}</div><div class='main'>"
             f"<div class='t'>{esc(th.get('title'))}</div><div class='compare'>"
-            f"<div class='l'>{chara('couple','sad')}<div class='lab'>{esc(l.get('label'))}</div><div class='ver'>{esc(l.get('verdict'))}</div></div>"
-            f"<div class='r'>{chara('couple','happy')}<div class='lab'>{esc(r.get('label'))}</div><div class='ver'>{esc(r.get('verdict'))}</div></div></div></div></div>")
+            f"<div class='l'><div class='note'></div><div class='lab'>{esc(l.get('label'))}</div><div class='ver'>{esc(l.get('verdict'))}</div></div>"
+            f"<div class='r'><div class='note'></div><div class='lab'>{esc(r.get('label'))}</div><div class='ver'>{esc(r.get('verdict'))}</div></div></div></div></div>")
     return TPL.replace("{{BODY}}", body).replace("{{CHANNEL}}", "").replace("{{SECTION}}", "").replace(".frame{", ".frame{padding:0;")
 
 def srt_time(t):

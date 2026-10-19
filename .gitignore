@@ -3,7 +3,6 @@ config/client_secret.json
 config/yt_token.json
 work/
 data/subs/
-data/channel_videos.json
 __pycache__/
 *.mp3
 *.mp4
