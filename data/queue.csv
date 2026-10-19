@@ -1,25 +1,25 @@
 priority,topic_key,topic,keyword,seasonal,source_url,seido_category,status
-12.0,tsuchisho_check,通知書・定期便チェック,年金振込通知書 見方,Y,https://seido-note.com/sanzensango-kokumin-nenkin-menjo-todokede-itsukara/,年金,todo
-12.0,tsuchisho_check,通知書・定期便チェック,ねんきん定期便 載らない年金,Y,https://seido-note.com/sanzensango-kokumin-nenkin-menjo-todokede-itsukara/,年金,todo
-12.0,tsuchisho_check,通知書・定期便チェック,年金 源泉徴収票,Y,https://seido-note.com/sanzensango-kokumin-nenkin-menjo-todokede-itsukara/,年金,todo
-10.5,zaishoku,働きながら年金(在職老齢年金・在職定時改定),在職老齢年金 2026,Y,https://seido-note.com/sanzensango-kokumin-nenkin-menjo-todokede-itsukara/,年金,todo
-10.5,zaishoku,働きながら年金(在職老齢年金・在職定時改定),在職定時改定,Y,https://seido-note.com/sanzensango-kokumin-nenkin-menjo-todokede-itsukara/,年金,todo
-10.5,zaishoku,働きながら年金(在職老齢年金・在職定時改定),65歳以降 働く 年金 増える,Y,https://seido-note.com/sanzensango-kokumin-nenkin-menjo-todokede-itsukara/,年金,todo
-10.5,zaishoku,働きながら年金(在職老齢年金・在職定時改定),再雇用 年金,Y,https://seido-note.com/sanzensango-kokumin-nenkin-menjo-todokede-itsukara/,年金,todo
-10.0,kyufu_shinsei,給付金・上乗せ申請,年金生活者支援給付金,,https://seido-note.com/koukousei-shougaku-kyufukin-hikazei/,給付金,todo
-10.0,kyufu_shinsei,給付金・上乗せ申請,振替加算,,https://seido-note.com/koukousei-shougaku-kyufukin-hikazei/,給付金,todo
-10.0,kyufu_shinsei,給付金・上乗せ申請,加給年金,,https://seido-note.com/koukousei-shougaku-kyufukin-hikazei/,給付金,todo
-10.0,kyufu_shinsei,給付金・上乗せ申請,高年齢求職者給付金,,https://seido-note.com/koukousei-shougaku-kyufukin-hikazei/,給付金,todo
-10.0,kyufu_shinsei,給付金・上乗せ申請,調整給付金,,https://seido-note.com/koukousei-shougaku-kyufukin-hikazei/,給付金,todo
-10.0,kyufu_shinsei,給付金・上乗せ申請,住民税非課税世帯 給付金,,https://seido-note.com/koukousei-shougaku-kyufukin-hikazei/,給付金,todo
-8.0,jukyu_nenrei,受給開始年齢(繰り上げ/繰り下げ),年金 繰り上げ 繰り下げ,,https://seido-note.com/sanzensango-kokumin-nenkin-menjo-todokede-itsukara/,年金,todo
-8.0,jukyu_nenrei,受給開始年齢(繰り上げ/繰り下げ),年金 何歳から,,https://seido-note.com/sanzensango-kokumin-nenkin-menjo-todokede-itsukara/,年金,todo
-8.0,jukyu_nenrei,受給開始年齢(繰り上げ/繰り下げ),受給開始年齢 損益分岐,,https://seido-note.com/sanzensango-kokumin-nenkin-menjo-todokede-itsukara/,年金,todo
-5.0,kaisei,年金改正・新ルール,年金改正 2026,,https://seido-note.com/ikuji-kyugyo-kyufu-2026-kaisei/,年金,todo
-5.0,kaisei,年金改正・新ルール,基礎年金 底上げ,,https://seido-note.com/ikuji-kyugyo-kyufu-2026-kaisei/,年金,todo
-5.0,kaisei,年金改正・新ルール,遺族年金 改正,,https://seido-note.com/ikuji-kyugyo-kyufu-2026-kaisei/,年金,todo
+12.0,tsuchisho_check,通知書・定期便チェック,年金振込通知書 見方,Y,NEW,年金,todo
+12.0,tsuchisho_check,通知書・定期便チェック,ねんきん定期便 載らない年金,Y,NEW,年金,todo
+12.0,tsuchisho_check,通知書・定期便チェック,年金 源泉徴収票,Y,NEW,年金,todo
+10.5,zaishoku,働きながら年金(在職老齢年金・在職定時改定),在職老齢年金 2026,Y,NEW,年金,todo
+10.5,zaishoku,働きながら年金(在職老齢年金・在職定時改定),在職定時改定,Y,NEW,年金,todo
+10.5,zaishoku,働きながら年金(在職老齢年金・在職定時改定),65歳以降 働く 年金 増える,Y,NEW,年金,todo
+10.5,zaishoku,働きながら年金(在職老齢年金・在職定時改定),再雇用 年金,Y,NEW,年金,todo
+10.0,kyufu_shinsei,給付金・上乗せ申請,年金生活者支援給付金,,NEW,給付金,todo
+10.0,kyufu_shinsei,給付金・上乗せ申請,振替加算,,NEW,給付金,todo
+10.0,kyufu_shinsei,給付金・上乗せ申請,加給年金,,NEW,給付金,todo
+10.0,kyufu_shinsei,給付金・上乗せ申請,高年齢求職者給付金,,NEW,給付金,todo
+10.0,kyufu_shinsei,給付金・上乗せ申請,調整給付金,,NEW,給付金,todo
+10.0,kyufu_shinsei,給付金・上乗せ申請,住民税非課税世帯 給付金,,NEW,給付金,todo
+8.0,jukyu_nenrei,受給開始年齢(繰り上げ/繰り下げ),年金 繰り上げ 繰り下げ,,NEW,年金,todo
+8.0,jukyu_nenrei,受給開始年齢(繰り上げ/繰り下げ),年金 何歳から,,NEW,年金,todo
+8.0,jukyu_nenrei,受給開始年齢(繰り上げ/繰り下げ),受給開始年齢 損益分岐,,NEW,年金,todo
+5.0,kaisei,年金改正・新ルール,年金改正 2026,,NEW,年金,todo
+5.0,kaisei,年金改正・新ルール,基礎年金 底上げ,,NEW,年金,todo
+5.0,kaisei,年金改正・新ルール,遺族年金 改正,,NEW,年金,todo
 5.0,kenko_hoken,定年後の健康保険・マイナ保険証,任意継続 国民健康保険 どっち,,NEW,健康保険,todo
 5.0,kenko_hoken,定年後の健康保険・マイナ保険証,退職後 健康保険 選び方,,NEW,健康保険,todo
 5.0,kenko_hoken,定年後の健康保険・マイナ保険証,資格確認書,,NEW,健康保険,todo
-5.0,rogo_shikin,老後資金・平均額の現実,厚生年金 平均 受給額,,https://seido-note.com/jidoteate-tsukaimichi-chokin-heikin/,老後,todo
-5.0,rogo_shikin,老後資金・平均額の現実,老後資金 いくら必要,,https://seido-note.com/jidoteate-tsukaimichi-chokin-heikin/,老後,todo
+5.0,rogo_shikin,老後資金・平均額の現実,厚生年金 平均 受給額,,NEW,老後,todo
+5.0,rogo_shikin,老後資金・平均額の現実,老後資金 いくら必要,,NEW,老後,todo
