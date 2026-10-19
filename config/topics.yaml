@@ -9,7 +9,7 @@ channel:
   cadence: "weekly"            # 벤치마크: 매주 금요일 19:00 (JST)
   publish_dow: 4               # 0=월 ... 4=금
   publish_time: "19:00"
-  longform_minutes: [8, 12]    # 벤치마크는 24〜41분. 자동화 1차 목표는 8〜12분, 안정되면 15분+
+  longform_minutes: [15, 20]   # 벤치마크 실측: 18〜41분, 중앙값 21분(2026년 25분). 1차 15분 → 20분+
 
 topics:
   - key: kyufu_shinsei

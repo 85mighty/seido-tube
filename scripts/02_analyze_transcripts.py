@@ -16,16 +16,28 @@ OUT = ROOT / "analysis" / "structure.md"
 CTA = {"登録": r"チャンネル登録|登録", "概要欄": r"概要欄", "書籍": r"本|書籍|Amazon", "高評価": r"高評価|いいね", "次回": r"次の動画|関連動画"}
 
 def parse_vtt(p):
-    cues, seen = [], set()
+    """YouTube 자동자막은 롤링 방식(이전 줄이 다음 큐에 다시 포함)이라 그대로 합치면 2~3배로 부풀어진다.
+    각 큐에서 '누적 텍스트의 끝과 겹치는 부분'을 잘라내고 새로 추가된 글자만 이어붙인다."""
+    cues, acc = [], ""
     for block in p.read_text(encoding="utf-8").split("\n\n"):
         m = re.search(r"(\d+):(\d+):(\d+)\.(\d+) --> ", block)
         if not m:
             continue
         t = int(m[1]) * 3600 + int(m[2]) * 60 + int(m[3])
-        text = re.sub(r"<[^>]+>|\n", "", block.split("\n", 1)[1] if "\n" in block else "")
-        text = re.sub(r"^.*-->.*$", "", text).strip()
-        if text and text not in seen:   # auto-sub 중복 제거
-            seen.add(text); cues.append((t, text))
+        lines = block.split("\n")[1:]
+        text = "".join(re.sub(r"<[^>]+>", "", l) for l in lines if "-->" not in l).strip()
+        text = re.sub(r"\[(音楽|拍手|笑い)\]", "", text).strip()
+        if not text:
+            continue
+        # 누적 끝과 겹치는 최장 접두사 제거
+        tail = acc[-len(text):] if acc else ""
+        k = 0
+        for n in range(min(len(text), len(tail)), 0, -1):
+            if tail.endswith(text[:n]):
+                k = n; break
+        new = text[k:]
+        if new:
+            acc += new; cues.append((t, new))
     return cues
 
 def analyze(vid, meta):
