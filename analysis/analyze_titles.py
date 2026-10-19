@@ -91,7 +91,9 @@ _cv = ROOT / "data" / "channel_videos.json"
 if _cv.exists():
     for m in _json.loads(_cv.read_text(encoding="utf-8")):
         d = by_title.setdefault(m["title"], dict(title=m["title"], date=None, early=None, current=None))
-        d["current"] = m.get("view_count"); d["duration_min"] = round((m.get("duration") or 0) / 60, 1)
+        if m.get("view_count") is not None:
+            d["current"] = m["view_count"]
+        d["duration_min"] = round((m.get("duration") or 0) / 60, 1)
         d["likes"] = m.get("like_count"); d["id"] = m.get("id")
         if m.get("upload_date"):
             d["date"] = f"{m['upload_date'][:4]}-{m['upload_date'][4:6]}-{m['upload_date'][6:]}"

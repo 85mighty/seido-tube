@@ -31,15 +31,28 @@ def run(cmd, quiet=False):
     return r.stdout if r.returncode == 0 else ""
 
 # ---------- 1) flat list ----------
+def _flat(channel, extra):
+    out = run(["yt-dlp", "--no-warnings", "--flat-playlist", "-J"] + extra + [f"{channel.rstrip('/')}/videos"], quiet=True)
+    return json.loads(out).get("entries", []) if out else []
+
 def flat_list(channel):
-    out = run(YTDLP_BASE + ["--flat-playlist", "-J", f"{channel.rstrip('/')}/videos"])
-    if not out:
+    # approximate_date: "3か月前" 같은 표시를 upload_date 근사값으로 변환 (watch 페이지 접근 없이)
+    ents = _flat(channel, ["--extractor-args", "youtube:lang=ja", "--extractor-args", "youtubetab:approximate_date"])
+    if ents and all(e.get("view_count") is None for e in ents):
+        ents2 = _flat(channel, ["--extractor-args", "youtubetab:approximate_date"])   # lang 인자가 view_count를 지우는 경우 대비
+        if any(e.get("view_count") is not None for e in ents2):
+            titles = {e["id"]: e.get("title") for e in ents if e.get("id")}
+            for e in ents2:
+                e["title"] = titles.get(e.get("id")) or e.get("title")
+            ents = ents2
+    if not ents:
         sys.exit("flat-playlist failed")
     rows = []
-    for e in json.loads(out).get("entries", []):
+    for e in ents:
         if e.get("id"):
             rows.append(dict(id=e["id"], title=e.get("title"), view_count=e.get("view_count"), duration=e.get("duration"),
-                             upload_date=None, like_count=None, comment_count=None, chapters=[], description=""))
+                             upload_date=e.get("upload_date"), like_count=None, comment_count=None, chapters=[], description=""))
+    print(f"  flat: views={sum(1 for r in rows if r['view_count'] is not None)}/{len(rows)}, dates≈{sum(1 for r in rows if r['upload_date'])}/{len(rows)}")
     return rows
 
 # ---------- 2) metadata ----------

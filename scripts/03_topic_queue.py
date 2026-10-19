@@ -22,15 +22,27 @@ def wp_posts(base):
             with urllib.request.urlopen(url, timeout=20) as r:
                 batch = json.load(r)
         except Exception as e:
-            print("WP fetch stop:", e); break
+            if "400" not in str(e):   # 400 = 마지막 페이지 초과(정상 종료)
+                print("WP fetch stop:", e)
+            break
         if not batch:
             break
         posts += batch; page += 1
     return posts
 
+GENERIC = {"年金", "給付金", "制度", "申請", "2026", "2025", "65歳", "60歳", "働く"}
 def match(post, keywords):
-    text = re.sub(r"<[^>]+>", "", post["title"]["rendered"] + post.get("excerpt", {}).get("rendered", ""))
-    return sum(1 for kw in keywords for tok in kw.split() if tok in text)
+    """키워드(공백 구분 토큰)가 제목에 2개 이상 들어가야 매칭. 범용 단어만으로는 0점."""
+    title = re.sub(r"<[^>]+>", "", post["title"]["rendered"])
+    best = 0
+    for kw in keywords:
+        toks = [x for x in kw.split() if x not in GENERIC]
+        hit = sum(1 for x in toks if x in title)
+        if toks and hit == len(toks):
+            best = max(best, 10 + hit)          # 전 토큰 일치
+        elif hit >= 2:
+            best = max(best, hit)
+    return best
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -43,9 +55,9 @@ if __name__ == "__main__":
     rows = []
     for t in CFG["topics"]:
         w = t["ranking_weight"] * (1.5 if t["key"] in boost else 1.0)
-        best = max(posts, key=lambda p: match(p, t["seed_keywords"]), default=None)
-        score = match(best, t["seed_keywords"]) if best else 0
         for kw in t["seed_keywords"]:
+            best = max(posts, key=lambda p: match(p, [kw]), default=None)
+            score = match(best, [kw]) if best else 0
             rows.append(dict(priority=round(w, 1), topic_key=t["key"], topic=t["name"], keyword=kw,
                              seasonal="Y" if t["key"] in boost else "",
                              source_url=best["link"] if best and score else "NEW",
