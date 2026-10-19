@@ -47,6 +47,12 @@ if __name__ == "__main__":
               .replace("{{related}}", r["source_url"] if r["source_url"] != "NEW" else "https://seido-note.com"))
     raw = ask_claude(prompt)
     js = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
+    for s in js["sections"]:   # 슬라이드별 narration 이 있으면 섹션 대본은 그 합으로 통일 (시간 배분은 글자수 비례)
+        sl = s.get("slides") or []
+        if sl and all(x.get("narration") for x in sl):
+            s["narration"] = "".join(x["narration"] for x in sl)
+            for x in sl:
+                x["weight"] = max(1, len(x["narration"]))
     slug = f"{dt.date.today():%Y%m%d}_{r['topic_key']}_{idx}"
     wd = ROOT / "work" / slug; wd.mkdir(parents=True, exist_ok=True)
     (wd / "script.json").write_text(json.dumps(js, ensure_ascii=False, indent=1), encoding="utf-8")
