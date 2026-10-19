@@ -12,12 +12,15 @@
   .sub{font-size:60px;font-weight:700;text-align:center;color:var(--navy)}
   ul{list-style:none;font-size:72px;font-weight:800;display:flex;flex-direction:column;gap:36px;line-height:1.3}
   li::before{content:"✔";color:var(--red);margin-right:24px}
-  table{border-collapse:collapse;width:100%;font-size:60px;font-weight:800}
-  th{background:var(--navy);color:#fff;padding:26px}
-  td{background:#fff;border:4px solid #bbb;padding:26px;text-align:center}
+  table{border-collapse:collapse;width:100%;font-size:60px;font-weight:800;line-height:1.2}
+  table.md{font-size:50px} table.sm{font-size:42px} table.xs{font-size:36px}
+  th{background:var(--navy);color:#fff;padding:26px 16px}
+  td{background:#fff;border:4px solid #bbb;padding:26px 16px;text-align:center}
+  table.md th,table.md td{padding:18px 12px} table.sm th,table.sm td{padding:14px 10px} table.xs th,table.xs td{padding:10px 8px}
   tr:nth-child(even) td{background:#f3f3f3}
-  td.hl{background:#fff;outline:8px solid var(--red);outline-offset:-8px;font-size:72px;color:var(--red)}
-  .callout{position:absolute;left:50%;top:78%;transform:translate(-50%,-50%);word-break:keep-all;background:#fff3cd;border:4px solid #e6c15a;border-radius:40px;padding:40px 70px;font-size:90px;font-weight:900;box-shadow:0 14px 40px rgba(0,0,0,.25);text-align:center;line-height:1.3;max-width:1500px}
+  td.hl{background:#fff;outline:8px solid var(--red);outline-offset:-8px;font-size:1.2em;color:var(--red)}
+  .callout{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);width:1560px;overflow-wrap:anywhere;background:#fff3cd;border:4px solid #e6c15a;border-radius:40px;padding:34px 60px;font-size:88px;font-weight:900;box-shadow:0 14px 40px rgba(0,0,0,.25);text-align:center;line-height:1.25}
+  .callout.md{font-size:72px} .callout.sm{font-size:60px}
   .callout b{color:var(--red)}
   .compare{display:flex;flex:1;border:10px solid #333;border-radius:20px;overflow:hidden}
   .compare>div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:30px;background:#eef1f5}

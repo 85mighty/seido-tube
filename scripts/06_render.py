@@ -56,14 +56,23 @@ def slide_html(sl, section):
     if k in ("title", "number"):
         body = f"<div class='big'>{esc(sl.get('big'))}</div><div class='sub'>{esc(sl.get('sub'))}</div>"
     elif k == "table":
-        th = "".join(f"<th>{esc(h)}</th>" for h in sl.get("header", [])); hl = sl.get("highlight") or [-1, -1]
+        import re
+        header, rows = sl.get("header", []), sl.get("rows", []); hl = sl.get("highlight") or [-1, -1]
+        ncols = max([len(header)] + [len(x) for x in rows] or [1])
+        maxcell = max([len(str(v)) for x in rows + [header] for v in x] or [1])
+        has_co = bool(sl.get("callout"))
+        # 행 수·열 수·셀 최대 글자수·콜아웃 유무로 표 폰트 단계 결정 (화면 밖으로 안 나가게)
+        load = len(rows) + (1 if has_co else 0) + (ncols - 3) * 0.5 + max(0, maxcell - 8) * 0.4
+        cls = "" if load <= 4 else "md" if load <= 5.5 else "sm" if load <= 7 else "xs"
+        th = "".join(f"<th>{esc(h)}</th>" for h in header)
         tr = "".join("<tr>" + "".join(f"<td class='{'hl' if [r, c] == list(hl) else ''}'>{esc(v)}</td>" for c, v in enumerate(row)) + "</tr>"
-                     for r, row in enumerate(sl.get("rows", [])))
-        body = f"{hdr}<table><tr>{th}</tr>{tr}</table>"
-        if sl.get("callout"):
-            import re
-            co = esc(sl["callout"]).replace("&lt;br&gt;", "<br>"); co = re.sub(r"([\d,]+万?[\d,]*円|[\d,]+歳|[\d,]+％)", r"<b>\1</b>", co)
-            body += f"<div class='callout'>{co}</div>"
+                     for r, row in enumerate(rows))
+        body = f"{hdr}<table class='{cls}'><tr>{th}</tr>{tr}</table>"
+        if has_co:
+            raw = sl["callout"]; n = len(re.sub(r"<br>|\s", "", raw))
+            ccls = "" if n <= 20 else "md" if n <= 30 else "sm"
+            co = esc(raw).replace("&lt;br&gt;", "<br>"); co = re.sub(r"([\d,.]+万?[\d,]*円|[\d,]+歳|[\d,]+％)", r"<b>\1</b>", co)
+            body += f"<div class='callout {ccls}'>{co}</div>"
     elif k == "compare":
         l, r = sl.get("left", {}), sl.get("right", {})
         body = (f"{hdr}<div class='compare'><div class='l'><div class='note'>{esc(l.get('note'))}</div><div class='lab'>{esc(l.get('label'))}</div><div class='ver'>{esc(l.get('verdict'))}</div></div>"
@@ -80,13 +89,17 @@ def slide_html(sl, section):
         body += chara(c["id"], c.get("mood", "neutral")).replace("<img", "<img class='character'")
     return TPL.replace("{{BODY}}", body).replace("{{CHANNEL}}", CHANNEL).replace("{{SECTION}}", esc(section))
 
+THUMB_TPL = (ROOT / "templates" / "thumb.html").read_text(encoding="utf-8")
 def thumb_html(th):
     l, r = th.get("left", {}), th.get("right", {})
-    body = (f"<div class='thumb'><div class='ribbon'>{esc(th.get('ribbon','知らなきゃ損！'))}</div><div class='main'>"
-            f"<div class='t'>{esc(th.get('title'))}</div><div class='compare'>"
-            f"<div class='l'><div class='note'></div><div class='lab'>{esc(l.get('label'))}</div><div class='ver'>{esc(l.get('verdict'))}</div></div>"
-            f"<div class='r'><div class='note'></div><div class='lab'>{esc(r.get('label'))}</div><div class='ver'>{esc(r.get('verdict'))}</div></div></div></div></div>")
-    return TPL.replace("{{BODY}}", body).replace("{{CHANNEL}}", "").replace("{{SECTION}}", "").replace(".frame{", ".frame{padding:0;")
+    def ver(v):   # verdict 5文字超は自動縮小
+        v = str(v or ""); return f"<span style='font-size:{96 if len(v) <= 4 else 76 if len(v) <= 6 else 60}px'>{esc(v)}</span>"
+    def lab(v):
+        v = str(v or ""); return f"<span style='font-size:{70 if len(v) <= 5 else 56 if len(v) <= 7 else 46}px'>{esc(v)}</span>"
+    t = str(th.get("title") or ""); tsize = 82 if len(t) <= 7 else 66 if len(t) <= 9 else 54
+    return (THUMB_TPL.replace("{{RIBBON}}", esc(th.get("ribbon", "知らなきゃ損！"))).replace("{{TITLE}}", f"<span style='font-size:{tsize}px'>{esc(t)}</span>")
+            .replace("{{LNOTE}}", esc(l.get("note", ""))).replace("{{LLAB}}", lab(l.get("label"))).replace("{{LVER}}", ver(l.get("verdict")))
+            .replace("{{RNOTE}}", esc(r.get("note", ""))).replace("{{RLAB}}", lab(r.get("label"))).replace("{{RVER}}", ver(r.get("verdict"))))
 
 def srt_time(t):
     h, r = divmod(t, 3600); m, s = divmod(r, 60)
